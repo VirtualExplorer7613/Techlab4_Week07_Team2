@@ -576,6 +576,8 @@ void UEditorEngine::RenderOpaquePass(const int32 ViewIndex, const FRenderingInfo
 	if (bDrawPrimitives)
 	{
 		// Grid 파이프라인이 바꾼 상태를 장면 기준으로 되돌린 뒤 반투명을 먼 것부터 그린다.
+		Renderer->SetCameraLocation(ViewCameraLocation);
+		Renderer->RenderQueueSorting(RenderQueue, ViewProjection);
 		RenderCommand::SetRasterizerState(SceneRasterizerState);
 		RenderCommand::SetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		Renderer->RenderTranslucent(ViewProjection);

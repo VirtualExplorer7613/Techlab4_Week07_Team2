@@ -61,7 +61,7 @@ bool FRenderer::Init()
 {
 	bUsePerObjectSlots = RenderCommand::SupportsConstantBufferOffsets();
 	PerObjectCB = RenderCommand::CreateConstantBuffer(sizeof(FPerObjectConstants));
-	ViewCB = RenderCommand::CreateConstantBuffer(sizeof(FMatrix));
+	ViewCB = RenderCommand::CreateConstantBuffer(sizeof(FPerViewConstants));
 	FireBallLightCB = RenderCommand::CreateConstantBuffer(sizeof(FFireBallLightConstants));
 
 	GPUOcclusion.Init();   // 실패해도 오클루전만 못 쓸 뿐 렌더링은 된다
@@ -165,7 +165,7 @@ void FRenderer::DrawStaticGroups()
 		return;
 
 	SCOPE_CYCLE_COUNTER(STAT_DrawRenderPackets);
-	RenderCommand::BindConstantBuffer(0, ViewCB.get(), EShaderBindFlagBits::Vertex);
+	RenderCommand::BindConstantBuffer(0, ViewCB.get(), EShaderBindFlagBits::Vertex | EShaderBindFlagBits::Pixel);
 
 	UMaterial* BoundMaterial = nullptr;
 	for (const FStaticDrawGroup* Group : StaticGroups)
@@ -202,7 +202,11 @@ void FRenderer::DrawStaticGroups()
 
 void FRenderer::RenderQueueSorting(FRenderQueue& InQueue, const FMatrix& ViewProjection)
 {
-	RenderCommand::UpdateBufferData(ViewCB.get(), &ViewProjection);
+	FPerViewConstants PerViewConstants;
+	PerViewConstants.ViewProjection = ViewProjection;
+	PerViewConstants.CameraPosition = CameraPosition;
+
+	RenderCommand::UpdateBufferData(ViewCB.get(), &PerViewConstants);
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RenderQueueSorting);
 
@@ -248,7 +252,7 @@ void FRenderer::DrawPackets(uint32 Begin, uint32 End, const FMatrix& ViewProject
 	LastMaterial = nullptr;
 	uint8 LastLODIndex = 0;
 
-	RenderCommand::BindConstantBuffer(0, ViewCB.get(), EShaderBindFlagBits::Vertex);
+	RenderCommand::BindConstantBuffer(0, ViewCB.get(), EShaderBindFlagBits::Vertex | EShaderBindFlagBits::Pixel);
 
 
 	for (uint32 k = Begin; k < End; ++k)          // k = 정렬된 위치
@@ -531,3 +535,4 @@ void FRenderer::SetFireBallLight(const FFireBallLightConstants& LightData)
 	FireBallLightData = LightData;
 	RenderCommand::UpdateBufferData(FireBallLightCB.get(), &FireBallLightData, sizeof(FFireBallLightConstants));
 }
+

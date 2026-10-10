@@ -15,6 +15,12 @@ struct FPerObjectConstants
 	FMatrix World;
 };
 
+struct alignas(16) FPerViewConstants
+{
+	FMatrix ViewProjection;
+	FVector4 CameraPosition;
+};
+
 struct FSortEntry
 {
 	uint64 Key;
@@ -91,6 +97,8 @@ public:
 
 	void SetFireBallLight(const FFireBallLightConstants& LightConstants);
 
+	void SetPerViewConstants(const FVector& InLocation) { CameraPosition = InLocation; }
+
 private:
 	// FIFO 소비용 배열의 용량만 재사용하며 매 View의 패킷 값은 새로 채운다.
 	FRenderQueue RenderPackets;
@@ -130,4 +138,5 @@ private:
 
 	TUniquePtr<FConstantBuffer> FireBallLightCB;
 	FFireBallLightConstants FireBallLightData{};
+	FVector CameraPosition = FVector(0.0f, 0.0f, 0.0f);
 };
