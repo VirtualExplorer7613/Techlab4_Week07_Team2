@@ -1,8 +1,9 @@
 #include "EnginePCH.h"
-#include "FireBallComponent.h"
+#include "LightComponent.h"
 #include "Engine/World.h"
 
-void UFireBallComponent::InitializeComponent()
+
+void ULightComponentBase::InitializeComponent()
 {
     Super::InitializeComponent();
 
@@ -10,18 +11,19 @@ void UFireBallComponent::InitializeComponent()
     {
         if (UWorld* World = Owner->GetWorld())
         {
-            World->GetScene().RegisterFireBall(this);
+            World->GetScene().RegisterLightComponent(this);
         }
     }
 }
 
-UFireBallComponent::~UFireBallComponent()
+
+ULightComponentBase::~ULightComponentBase()
 {
     if (AActor* Owner = GetOwner())
     {
         if (UWorld* World = Owner->GetWorld())
         {
-            World->GetScene().UnregisterFireBall(this);
+            World->GetScene().UnRegisterLightComponent(this);
         }
     }
 }

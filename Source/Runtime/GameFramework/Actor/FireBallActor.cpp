@@ -6,8 +6,8 @@ AFireBallActor::AFireBallActor()
 	StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>("UStaticMeshComponent");
 	StaticMeshComponent->SetupAttachment(GetRootComponent());
 
-	FireballComponent = CreateDefaultSubobject<UFireBallComponent>("UFireBallComponent");
-	FireballComponent->SetupAttachment(GetRootComponent());
+	PointLightComponent = CreateDefaultSubobject<UPointLightComponent>("UFireBallComponent");
+	PointLightComponent->SetupAttachment(GetRootComponent());
 
 	RotatingMovementComponent = CreateDefaultSubobject<URotatingMovementComponent>("URotatingMovementComponent");	
 	RotatingMovementComponent->RotationRate = FRotator(0.0f, 100.0f, 100.0f);

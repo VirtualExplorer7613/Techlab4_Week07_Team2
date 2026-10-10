@@ -2,12 +2,17 @@
 
 #include "PrimitiveSceneProxy.h"
 #include "Component/BillboardComponent.h"
+#include "Component/LightComponent.h"
 #include "Component/PrimitiveComponent.h"
-#include "Component/FireBallComponent.h"
 #include "Math/Frustum.h"
 #include "Math/BVH.h"
 #include "Render/FogInfo.h"
 #include "Render/Renderer.h"
+
+class UPointLightComponent;
+class USpotLightComponent;
+class UAmbientLightComponent;
+class UDirectionalLightComponent;
 
 struct FExponentialHeightFogSceneInfo
 {
@@ -35,9 +40,9 @@ public:
 	void MarkDirty(FPrimitiveSceneProxy* Proxy);
 	void MarkRenderStateDirty(FPrimitiveSceneProxy* Proxy);
 
-	void UpdateFireBallLight(FRenderer* Renderer);
-	void RegisterFireBall(UFireBallComponent* FireBall);
-	void UnregisterFireBall(UFireBallComponent* FireBall);
+	void UpdateLightComponents(FRenderer* Renderer);
+	void RegisterLightComponent(ULightComponentBase* LightComponent);
+	void UnRegisterLightComponent(ULightComponentBase* LightComponent);
 
 	TArray<FPrimitiveSceneProxy*> Proxies;
 	TArray<FPrimitiveSceneProxy*> DirtyProxies;
@@ -57,5 +62,11 @@ public:
 	};
 	bool bElementListChanged = false;
 	
-	TArray<UFireBallComponent*> FireBallComponents;
+	TArray<ULightComponentBase*> LightComponents;
+
+private:
+	void UpdatePointLight(FLightConstants& LightConstants, UPointLightComponent* LightComponent);
+	void UpdateSpotLight(FLightConstants& LightConstants, USpotLightComponent* LightComponent);
+	void UpdateAmbientLight(FLightConstants& LightConstants, UAmbientLightComponent* LightComponent);
+	void UpdateDirectionalLight(FLightConstants& LightConstants, UDirectionalLightComponent* LightComponent);
 };

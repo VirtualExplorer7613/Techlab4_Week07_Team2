@@ -1,4 +1,8 @@
 #pragma pack_matrix(row_major)
+
+#define NUM_POINT_LIGHT 16
+#define NUM_SPOT_LIGHT 16
+
 cbuffer Viewconstants : register(b0)
 {
     matrix VP;
@@ -17,18 +21,42 @@ cbuffer MaterialParams : register(b1)
     float Padding;
 };
 
-struct FireBallLight
+struct FPointLightInfo
 {
     float4 PositionRadius;
     float4 ColorIntensity;
     float4 FalloffEnabled;
 };
 
-cbuffer FireBallLightConstants : register(b3)
+struct FSpotLightInfo
 {
-    FireBallLight FireBalls[16];
-    uint FireBallCount;
-    float3 FireBallLightPadding;
+    float4 PositionRadius;
+    float4 ColorIntensity;
+    float4 FalloffEnabled;
+    float4 OutAngleInvCosDiff;
+    float4 FowardVector;
+};
+
+struct FAmbientLightInfo
+{
+    float4 ColorIntensity;
+};
+
+struct FDirectionalLightInfo
+{
+    float4 ColorIntensity;
+    float4 Direction;
+};
+
+cbuffer LightConstants : register(b3)
+{
+    FPointLightInfo PointLights[NUM_POINT_LIGHT];
+    FSpotLightInfo SpotLights[NUM_SPOT_LIGHT];
+    FAmbientLightInfo AmbientLight;
+    FDirectionalLightInfo DirectionalLight;
+    uint PointLightCount = 0;
+    uint SpotLightCount = 0;
+    uint2 LightPadding;
 };
 
 struct VS_INPUT
@@ -51,11 +79,6 @@ struct PS_INPUT
 Texture2D g_txColor : register(t0);
 SamplerState g_Sample : register(s0);
 
-// 임시 하드코딩 Directional Light. 빛이 "향하는" 방향이다.
-static const float3 LightDir = normalize(float3(0.5f, 0.5f, -1.0f));
-static const float3 LightColor = float3(0.5f, 0.5f, 0.5f);
-static const float3 AmbientColor = float3(0.5f, 0.5f, 0.5f);
-
 PS_INPUT mainVS(VS_INPUT input)
 {
     PS_INPUT output;
@@ -72,21 +95,18 @@ PS_INPUT mainVS(VS_INPUT input)
 
 float4 mainPS(PS_INPUT input) : SV_TARGET
 {
-    // Mesh 표면색
     float4 texColor = g_txColor.Sample(g_Sample, input.uv + UVOffset);
     float4 albedo = texColor * BaseColor;
-    
-    float3 N = normalize(input.normal); // 현재 표면이 향하고 있는 방향
-    
-    float directionNdotL = saturate(dot(N, -LightDir));
-    
-    float3 totalPointLight = float3(0, 0, 0);
-    for (uint i = 0; i < FireBallCount; ++i)
+    float3 totalLight = float3(0, 0, 0);
+    float3 N = normalize(input.normal);
+   
+    //PointLight
+    for (uint i = 0; i < PointLightCount; ++i)
     {
-        FireBallLight fireBall = FireBalls[i];
-        float4 PositionRadius = fireBall.PositionRadius;
-        float4 ColorIntensity = fireBall.ColorIntensity;
-        float4 FalloffEnabled = fireBall.FalloffEnabled;
+        FPointLightInfo PointLight = PointLights[i];
+        float4 PositionRadius = PointLight.PositionRadius;
+        float4 ColorIntensity = PointLight.ColorIntensity;
+        float4 FalloffEnabled = PointLight.FalloffEnabled;
         
         float distance = length(PositionRadius.xyz - input.worldPos);
         float radius = max(PositionRadius.w, 0.001f);
@@ -101,14 +121,49 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
         
         float pointNdotL = saturate(dot(N, lightDir));
         float3 pointLight = ColorIntensity.rgb * pointNdotL * falloff * enabled * intensity;
-        totalPointLight += pointLight;
+        totalLight += pointLight;
     }
+    
+    //SpotLight
+    for (uint j = 0; j < SpotLightCount; ++j)
+    {
+        FSpotLightInfo SpotLight = SpotLights[j];
+        float4 PositionRadius = SpotLight.PositionRadius;
+        float4 ColorIntensity = SpotLight.ColorIntensity;
+        float4 FalloffEnabled = SpotLight.FalloffEnabled;
+        float4 OutAngleInvCosDiff = SpotLight.OutAngleInvCosDiff;
+        float3 SpotFowardVector = normalize(SpotLight.FowardVector.xyz);
 
-    float3 lighting = AmbientColor + LightColor * directionNdotL;
+        float distance = length(PositionRadius.xyz - input.worldPos);
+        float radius = max(PositionRadius.w, 0.001f);
+
+        //SpotLight는 거리에 따른 감쇠와 Cone에 따른 감쇠 두가지가 있다.
+        float Distancefalloff = saturate(1.0f - distance / radius);
+        
+        //콘의 어느 범위에 속하는가 = cos(=spot 전방벡터와 -L 내적) - cosOuter * (1 / cosInner - cosOuter)
+        float3 lightDir = normalize(PositionRadius.xyz - input.worldPos);
+        float spotforwarddotL = dot(-lightDir, SpotFowardVector);
+        float Conefalloff = saturate((spotforwarddotL - OutAngleInvCosDiff.x) * OutAngleInvCosDiff.y);
+        float falloff = pow(Distancefalloff, max(FalloffEnabled.x, 0.001f)) * Conefalloff;
+        
+        float enabled = FalloffEnabled.y;
+        float intensity = ColorIntensity.w;
+        
+        float spotNdotL = saturate(dot(N, lightDir));
+        float3 spotLight = ColorIntensity.rgb * spotNdotL * falloff * enabled * intensity;
+        totalLight += spotLight;
+
+    }
+    
+    //Directional Light, AmbientLight
+    float directionNdotL = saturate(dot(N, -DirectionalLight.Direction.xyz));
+    float3 lighting = AmbientLight.ColorIntensity.xyz * AmbientLight.ColorIntensity.w
+          + DirectionalLight.ColorIntensity.xyz * DirectionalLight.ColorIntensity.w
+          * directionNdotL;
     
     // Opaque는 알파를 1로 고정한다. 뷰포트 RT를 ImGui가 알파 블렌딩으로 그리므로 알파가 남으면 비쳐 보인다
     float alpha = bOpaque > 0.5f ? 1.0f : albedo.a;
     
-    float3 finalRGB = albedo.rgb * (lighting + totalPointLight);
+    float3 finalRGB = albedo.rgb * (lighting + totalLight);
     return float4(finalRGB, alpha);
 }

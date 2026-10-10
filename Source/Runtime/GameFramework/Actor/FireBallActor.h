@@ -1,6 +1,6 @@
 #pragma once
 #include "GameFramework/Actor.h"
-#include "Component/FireBallComponent.h"
+#include "Component/PointLightComponent.h"
 #include "Component/StaticMeshComponent.h"
 #include "Component/RotatingMovementComponent.h"
 #include "Component/ProjectileMovementComponent.h"
@@ -11,10 +11,10 @@ class AFireBallActor : public AActor
 
 public:
 	AFireBallActor();
-	UFireBallComponent* GetFireBallComponent() const { return FireballComponent; }
+	UPointLightComponent* GetFireBallComponent() const { return PointLightComponent; }
 
 private:
-	UFireBallComponent* FireballComponent;
+	UPointLightComponent* PointLightComponent;
 	UStaticMeshComponent* StaticMeshComponent;
 
 	URotatingMovementComponent* RotatingMovementComponent;

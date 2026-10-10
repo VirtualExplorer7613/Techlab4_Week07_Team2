@@ -14,6 +14,7 @@
 #include "Collision/Ray.h"
 #include "Component/BillboardComponent.h"
 #include "Component/ExponentialHeightFogComponent.h"
+#include "Component/LightComponent.h"
 
 #include "Component/StaticMeshComponent.h"
 #include "Asset/LOD/StaticMeshLODSelector.h"
@@ -93,8 +94,8 @@ AActor* UWorld::SpawnActor(UClass* Class, FName InName, const FTransform* Transf
 			Scene.AddPrimitive(Primitive);
 		else if (UExponentialHeightFogComponent* Fog = Cast<UExponentialHeightFogComponent>(Component))
 			Scene.AddFogInfo(Fog->GetUUID(), Fog->GetFogInfo());
-		else if (UFireBallComponent* FireBall = Cast<UFireBallComponent>(Component))
-			Scene.RegisterFireBall(FireBall);
+		else if (ULightComponent* Light = Cast<ULightComponent>(Component))
+			Scene.RegisterLightComponent(Light);
 	}
 
 	// 4. Level->Actors에 등록
@@ -747,8 +748,8 @@ void UWorld::PostDuplicate(bool bDuplicateForPIE)
 				Scene.AddPrimitive(Primitive);
 			else if (UExponentialHeightFogComponent* Fog = Cast<UExponentialHeightFogComponent>(Component))
 				Scene.AddFogInfo(Fog->GetUUID(), Fog->GetFogInfo());
-			else if (UFireBallComponent* FireBall = Cast<UFireBallComponent>(Component))
-				Scene.RegisterFireBall(FireBall);
+			else if (ULightComponent* LightComponent = Cast<ULightComponent>(Component))
+				Scene.RegisterLightComponent(LightComponent);
 		}
 
 		BeginPlayList.Enqueue(Actor);   // Tick 등록은 BeginPlay에서 함

@@ -1,5 +1,9 @@
 ﻿#include "EnginePCH.h"
 #include "Scene.h"
+#include "Component/PointLightComponent.h"
+#include "Component/SpotLightComponent.h"
+#include "Component/DirectionalLightComponent.h"
+#include "Component/AmbientLightComponent.h"
 
 void FScene::AddPrimitive(UPrimitiveComponent* Component)
 {
@@ -206,82 +210,199 @@ void FScene::MarkRenderStateDirty(FPrimitiveSceneProxy* Proxy)
 }
 
 
-void FScene::UpdateFireBallLight(FRenderer* Renderer)
+void FScene::UpdateLightComponents(FRenderer* Renderer)
 {
 	if (!Renderer)
 		return;
 
-	FFireBallLight Data{};
-	FFireBallLightConstants Constants{};
-
-	Constants.LightCount = 0;
-
-	// 기본값: 활성 FireBall 없음
-	Data.PositionRadius = FVector4(0, 0, 0, 0);
-	Data.ColorIntensity = FVector4(0, 0, 0, 0);
-	Data.FalloffEnabled = FVector4(1, 0, 0, 0);
-
-	for (UFireBallComponent* FireBall : FireBallComponents)
+	FLightConstants Constants{};
+	for (ULightComponentBase* LightComponent : LightComponents)
 	{
-		if (Constants.LightCount >= MaxFireBalls)
-		{
-			break; // 최대 FireBall 수를 초과하면 루프 종료
-		}
-
-		if (!FireBall)
+		if (!LightComponent)
 			continue;
 
-		const FVector Position = FireBall->GetWorldLocation();
-		const FVector4 Color = FireBall->GetLightColor();
+		UClass* LightClass = LightComponent->GetClass();
 
-		Data.PositionRadius = FVector4(
-			Position.X,
-			Position.Y,
-			Position.Z,
-			std::max<float>(FireBall->GetRadius(), 0.001f)
-		);
+		
+		//SpotLight가 PointLight를 상속받기 때문에 먼저 검사해야 한다.
+		if (USpotLightComponent* SpotLightComponent = Cast<USpotLightComponent>(LightComponent))
+		{
+			if (Constants.SpotLightCount >= MaxLightComponents)
+			{
+				continue;
+			}
 
-		Data.ColorIntensity = FVector4(
-			Color.X,
-			Color.Y,
-			Color.Z,
-			std::max<float>(FireBall->GetIntensity(), 0.0f)
-		);
+			UpdateSpotLight(Constants, SpotLightComponent);
+		}
+		else if (UPointLightComponent* PointLightComponent = Cast<UPointLightComponent>(LightComponent))
+		{
+			if (Constants.PointLightCount >= MaxLightComponents)
+			{
+				continue;
+			}
 
-		Data.FalloffEnabled = FVector4(
-			std::max<float>(FireBall->GetRadiusFalloff(), 0.001f),
-			1.0f,
-			0.0f,
-			0.0f
-		);
+			UpdatePointLight(Constants, PointLightComponent);
+		}
+		else if (UAmbientLightComponent* AmbientLightComponent = Cast<UAmbientLightComponent>(LightComponent))
+		{
+			UpdateAmbientLight(Constants, AmbientLightComponent);
+		}
 
-		Constants.Light[Constants.LightCount] = Data;
-		Constants.LightCount++;
+		else if (UDirectionalLightComponent* DirectionalLightComponent = Cast<UDirectionalLightComponent>(LightComponent))
+		{
+			UpdateDirectionalLight(Constants, DirectionalLightComponent);
+		}
 	}
 
-	Renderer->SetFireBallLight(Constants);
+	Renderer->SetLight(Constants);
 }
 
-void FScene::RegisterFireBall(UFireBallComponent* FireBall)
+void FScene::RegisterLightComponent(ULightComponentBase* LightComponent)
 {
-	if (!FireBall)
+	if (!LightComponent)
 		return;
 
-	for (UFireBallComponent* Existing : FireBallComponents)
+	for (ULightComponentBase* Existing : LightComponents)
 	{
-		if (Existing == FireBall)
+		if (Existing == LightComponent)
 			return;
 	}
-	FireBallComponents.Add(FireBall);
+	LightComponents.Add(LightComponent);
 }
-void FScene::UnregisterFireBall(UFireBallComponent* FireBall)
+void FScene::UnRegisterLightComponent(ULightComponentBase* LightComponent)
 {
-	for (uint32 i = 0; i < FireBallComponents.Num(); ++i)
+	for (uint32 i = 0; i < LightComponents.Num(); ++i)
 	{
-		if (FireBallComponents[i] == FireBall)
+		if (LightComponents[i] == LightComponent)
 		{
-			FireBallComponents.RemoveAt(i, 1);
+			LightComponents.RemoveAt(i, 1);
 			return;
 		}
 	}
+}
+
+void FScene::UpdatePointLight(FLightConstants& LightConstants, UPointLightComponent *LightComponent)
+{
+	static FPointLight PointData{};
+	const FVector Position = LightComponent->GetWorldLocation();
+	const FVector4 Color = LightComponent->GetLightColor();
+
+	PointData.PositionRadius = FVector4(
+		Position.X,
+		Position.Y,
+		Position.Z,
+		std::max<float>(LightComponent->GetAttenuationRadius(), 0.001f)
+	);
+
+	PointData.ColorIntensity = FVector4(
+		Color.X,
+		Color.Y,
+		Color.Z,
+		std::max<float>(LightComponent->GetIntensity(), 0.0f)
+	);
+
+	PointData.FalloffEnabled = FVector4(
+		std::max<float>(LightComponent->GeLightFalloffExponent(), 0.001f),
+		1.0f,
+		0.0f,
+		0.0f
+	);
+
+	LightConstants.PointLights[LightConstants.PointLightCount] = PointData;
+	LightConstants.PointLightCount++;
+}
+
+void FScene::UpdateSpotLight(FLightConstants & LightConstants, USpotLightComponent* LightComponent)
+{
+	static FSpotLight SpotData{};
+
+	FTransform WorldTransform;
+	WorldTransform.Location = LightComponent->GetWorldLocation();
+	WorldTransform.Rotation = LightComponent->GetWorldRotation();
+	const FVector4 Color = LightComponent->GetLightColor();
+
+	SpotData.PositionRadius = FVector4(
+		WorldTransform.Location.X,
+		WorldTransform.Location.Y,
+		WorldTransform.Location.Z,
+		std::max<float>(LightComponent->GetAttenuationRadius(), 0.001f)
+	);
+
+	SpotData.ColorIntensity = FVector4(
+		Color.X,
+		Color.Y,
+		Color.Z,
+		std::max<float>(LightComponent->GetIntensity(), 0.0f)
+	);
+
+	SpotData.FalloffEnabled = FVector4(
+		std::max<float>(LightComponent->GeLightFalloffExponent(), 0.001f),
+		1.0f,
+		0.0f,
+		0.0f
+	);
+
+	const float InnerAngle = LightComponent->GetInnerConeAngle();
+	const float OuterAngle = LightComponent->GetOuterConeAngle();
+	const float SafeOuterAngle = FMath::Clamp(OuterAngle, 0.0f, 89.0f);
+	const float SafeInnerAngle = FMath::Clamp(InnerAngle, 0.0f, SafeOuterAngle);
+	const float cosOuter = cosf(FMath::DegreesToRadians(SafeOuterAngle));
+	const float cosInner = cosf(FMath::DegreesToRadians(SafeInnerAngle));
+	const float CosDiff = cosInner - cosOuter < 0.001f ? 0.001f : cosInner - cosOuter;
+	const float InvCosDiff = 1.f / CosDiff;
+
+	SpotData.OutAngleInvCosDiff = FVector4(
+		std::max<float>(cosOuter, 0.001f),
+		InvCosDiff,
+		0.f,
+		0.f
+	);
+
+	SpotData.ForwardVector = FVector4(
+		WorldTransform.GetForward(),
+		0.f
+	);
+
+	LightConstants.SpotLights[LightConstants.SpotLightCount] = SpotData;
+	LightConstants.SpotLightCount++;
+}
+
+void FScene::UpdateAmbientLight(FLightConstants & LightConstants, UAmbientLightComponent* LightComponent)
+{
+	//언리얼은 환경광(SkyLight)를 여러개 배치하면 마지막에 수정한 SkyLight만 반영된다
+	//TODO : 이 엔진도 마찬가지로 마지막 수정이 된 Ambient만 반영한다.(현재는 마지막에 등록된 Ambient가 반영)
+	static FAmbientLight AmbientData{};
+	const FVector4 Color = LightComponent->GetLightColor();
+
+	AmbientData.ColorIntensity = FVector4(
+		Color.X,
+		Color.Y,
+		Color.Z,
+		std::max<float>(LightComponent->GetIntensity(), 0.0f)
+	);
+
+	LightConstants.AmbientLight = AmbientData;
+}
+
+void FScene::UpdateDirectionalLight(FLightConstants & LightConstants, UDirectionalLightComponent* LightComponent)
+{
+	//TODO : 디렉셔널 라이트가 여러 개 있으면, 우선순위(priority) 순으로 고르고,
+	// 우선순위가 같으면 에디터용 경고 메시지를 띄우며 하나만 골라 Intensity에 넣는다.
+	// 언리얼은 Defferred  방식이기 때문에 불투명 객체에 모든 Directional Light가 합산되어 밝게 보이지만
+	// 이 엔진은 Forward 방식으로 계산하므로 Directinal이 여러 개 있어도 밝아질 일이 없다.
+	static FDirectionalLight DirectionalData{};
+
+	const FVector4 Color = LightComponent->GetLightColor();
+	const FVector Direction = LightComponent->GetDirection();
+
+	DirectionalData.ColorIntensity = FVector4(
+		Color.X,
+		Color.Y,
+		Color.Z,
+		std::max<float>(LightComponent->GetIntensity(), 0.0f)
+	);
+
+	DirectionalData.Direction = FVector4(LightComponent->GetDirection(), 0.f);
+
+	LightConstants.DirectionalLight = DirectionalData;
 }
