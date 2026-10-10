@@ -1,4 +1,18 @@
 #pragma pack_matrix(row_major)
+
+#define LIGHTING_MODEL_LAMBERT 0
+#define LIGHTING_MODEL_PHONG 1
+#define LIGHTING_MODEL_GOURAUD 2
+#define LIGHTING_MODEL_BLINN_PHONG 3
+
+#ifndef LIGHTING_MODEL
+#define LIGHTING_MODEL LIGHTING_MODEL_PHONG
+#endif
+
+static const float PI = 3.14159265358979323846f;
+static const float Shininess = 64.0f;
+static const float3 SpecularColor = float3(0.04f, 0.04f, 0.04f);
+
 cbuffer Viewconstants : register(b0)
 {
     matrix VP;
@@ -54,8 +68,42 @@ SamplerState g_Sample : register(s0);
 
 // 임시 하드코딩 Directional Light. 빛이 "향하는" 방향이다.
 static const float3 LightDir = normalize(float3(0.5f, 0.5f, -1.0f));
-static const float3 LightColor = float3(0.5f, 0.5f, 0.5f);
-static const float3 AmbientColor = float3(0.5f, 0.5f, 0.5f);
+static const float3 LightColor = float3(1.0f, 1.0f, 1.0f);
+static const float3 AmbientColor = float3(0.1f, 0.1f, 0.1f);
+
+void ComputeLight(float3 N, float3 L, float3 V, float3 Albedo, float3 LightColor, out float3 OutDiffuse, out float3 OutSpecular)
+{
+    float NdotL = saturate(dot(N, L));
+    float3 E = LightColor * PI;
+    
+    float3 Kd = Albedo * (1.0f - SpecularColor);
+    OutDiffuse = Kd / PI * NdotL * E;
+    
+#if LIGHTING_MODEL == LIGHTING_MODEL_PHONG
+    if(NdotL <= 0.0f)
+    {
+        OutSpecular = float3(0, 0, 0);
+        return;
+    }
+    float3 R = reflect(-L, N);
+    float RdotV = saturate(dot(R, V));
+    float Norm = (Shininess + 2.0f) / (2.0f * PI);
+    OutSpecular = SpecularColor * Norm * pow(RdotV, Shininess) * E * NdotL;
+#else
+    OutSpecular = float3(0, 0, 0);
+#endif
+}
+
+float3 ACESFilmicToneMapping(float3 color)
+{
+    // ACES Filmic Tone Mapping
+    float a = 2.51f;
+    float b = 0.03f;
+    float c = 2.43f;
+    float d = 0.59f;
+    float e = 0.14f;
+    return saturate((color * (a * color + b)) / (color * (c * color + d) + e));
+}
 
 PS_INPUT mainVS(VS_INPUT input)
 {
@@ -76,12 +124,17 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
     // Mesh 표면색
     float4 texColor = g_txColor.Sample(g_Sample, input.uv + UVOffset);
     float4 albedo = texColor * BaseColor;
-    
+    albedo.rgb = pow(albedo.rgb, 2.2f);
     float3 N = normalize(input.normal); // 현재 표면이 향하고 있는 방향
+    float3 V = normalize(CameraPos.xyz - input.worldPos); // 현재 표면에서 카메라가 있는 방향
     
-    float directionNdotL = saturate(dot(N, -LightDir));
+    float3 totalDiffuse = 0, totalSpecular = 0;
+    float3 d, s;
     
-    float3 totalPointLight = float3(0, 0, 0);
+    ComputeLight(N, -LightDir, V, albedo.rgb, LightColor, d, s);
+    totalDiffuse += d;
+    totalSpecular += s;
+   
     for (uint i = 0; i < FireBallCount; ++i)
     {
         FireBallLight fireBall = FireBalls[i];
@@ -99,17 +152,18 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
         float intensity = ColorIntensity.w;
         
         float3 lightDir = normalize(PositionRadius.xyz - input.worldPos);
-        
-        float pointNdotL = saturate(dot(N, lightDir));
-        float3 pointLight = ColorIntensity.rgb * pointNdotL * falloff * enabled * intensity;
-        totalPointLight += pointLight;
+        ComputeLight(N, lightDir, V, albedo.rgb, ColorIntensity.rgb * intensity * enabled * falloff, d, s);
+        totalDiffuse += d;
+        totalSpecular += s;
     }
-
-    float3 lighting = AmbientColor + LightColor * directionNdotL;
+    
     
     // Opaque는 알파를 1로 고정한다. 뷰포트 RT를 ImGui가 알파 블렌딩으로 그리므로 알파가 남으면 비쳐 보인다
     float alpha = bOpaque > 0.5f ? 1.0f : albedo.a;
     
-    float3 finalRGB = albedo.rgb * (lighting + totalPointLight);
+    float3 finalRGB = albedo.rgb * AmbientColor + totalDiffuse + totalSpecular;
+    finalRGB = ACESFilmicToneMapping(finalRGB);
+    finalRGB = pow(finalRGB, 1.0f / 2.2f); // Gamma Correction
     return float4(finalRGB, alpha);
 }
+
