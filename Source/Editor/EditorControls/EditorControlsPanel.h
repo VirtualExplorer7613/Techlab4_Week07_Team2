@@ -5,10 +5,12 @@
 
 #include "GameFramework/Actor/ParticleActor.h"
 #include "GameFramework/Actor/StaticMeshActor.h"
-#include "GameFramework/Actor/LightActor.h"
 #include "GameFramework/Actor/TextRenderActor.h"
-#include "GameFramework/Actor/FireBallActor.h"
 #include "GameFramework/Actor/ExponentialHeightFogActor.h"
+#include "GameFramework/Actor/SpotLight.h"
+#include "GameFramework/Actor/PointLight.h"
+#include "GameFramework/Actor/DirectionalLight.h"
+#include "GameFramework/Actor/AmbientLight.h"
 
 class FMultipleViewportsAdapter;
 
@@ -31,7 +33,7 @@ public:
 
 	int32 SelectedIndex = 0;
 
-	const char* Items[7] ={"Actor", "StaticMesh","Particle","Text","Light","ExponentialHeightFog", "FireBall"};
+	const char* Items[9] ={"Actor", "StaticMesh","Particle","Text","ExponentialHeightFog", "SpotLight", "PointLight", "DirectionalLight", "AmbientLight"};
 
 	FGizmo* Gizmo = nullptr;
 	int32 GizmoSelectedIndex = 0;
@@ -46,9 +48,11 @@ public:
 		AStaticMeshActor::StaticClass(),  
 		AParticleActor::StaticClass(),
 		ATextRenderActor::StaticClass(),
-		ALightActor::StaticClass(),
 		AExponentialHeightFogActor::StaticClass(),
-		AFireBallActor::StaticClass()
+		ASpotLight::StaticClass(),
+		APointLight::StaticClass(),
+		ADirectionalLight::StaticClass(),
+		AAmbientLight::StaticClass()
 	};
 
     void SetViewportAdapter(FMultipleViewportsAdapter* InAdapter) { ViewportAdapter = InAdapter; }

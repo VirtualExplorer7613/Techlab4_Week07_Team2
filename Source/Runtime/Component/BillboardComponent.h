@@ -23,6 +23,7 @@ public:
 	virtual int32 GetNumMaterials() const override { return 1; }
 	virtual UMaterial* GetMaterial(int32 SlotIndex) const override { return SlotIndex == 0 ? Material : nullptr; }
 	virtual void SetMaterial(int32 SlotIndex, UMaterial* InMaterial) override { if (SlotIndex == 0) Material = InMaterial; }
+	void SetTint(const FVector4& InTint) { BillboardParams.Tint = InTint; }
 
 	virtual const FStaticMeshData* GetMeshData() const override { return QuadMesh ? &QuadMesh->GetMeshData() : nullptr; }
 
@@ -39,6 +40,11 @@ public:
 protected:
 	UMaterial* Material = nullptr;
 	UStaticMesh* QuadMesh = nullptr;
+
+protected:
+	FBillboardMaterialParams BillboardParams;
+	//빌보드 컬러, Material의 BaseColor에 곱해진다.
+	FVector Tint = { 1.f, 1.f, 1.f };
 private:
 
 };

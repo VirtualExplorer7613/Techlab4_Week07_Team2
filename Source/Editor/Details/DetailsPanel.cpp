@@ -24,6 +24,21 @@
 
 namespace
 {
+	// 숨겨진 컴포넌트는 건너뛰고, 그 아래에 붙은 컴포넌트를 한 단계 올려서 모은다
+	void CollectVisibleChildren(USceneComponent* Component, TArray<USceneComponent*>& OutChildren)
+	{
+		for (USceneComponent* Child : Component->GetAttachChildren())
+		{
+			if (!Child)
+				continue;
+
+			if (Child->IsHiddenInDetails())
+				CollectVisibleChildren(Child, OutChildren);
+			else
+				OutChildren.Add(Child);
+		}
+	}
+
 	bool DrawAxisControl(const FString& _label, float& _value, float _speed, float _minValue, float _maxValue, float _resetValue, FVector4 _color)
 	{
 		bool isValueChanged = false;
@@ -831,7 +846,23 @@ void FDetailsPanel::OnRender()
 		while (TargetComponent && TargetComponent->IsHiddenInDetails())
 		{
 			USceneComponent* HiddenComponent = Cast<USceneComponent>(TargetComponent);
-			TargetComponent = HiddenComponent ? HiddenComponent->GetAttachParent() : nullptr;
+			if (!HiddenComponent)
+			{
+				TargetComponent = nullptr;
+				break;
+			}
+
+			// 부모가 없으면(숨긴 빌보드가 루트인 라이트 액터) 노출되는 첫 자식으로 내려간다
+			if (USceneComponent* Parent = HiddenComponent->GetAttachParent())
+			{
+				TargetComponent = Parent;
+			}
+			else
+			{
+				TArray<USceneComponent*> VisibleChildren;
+				CollectVisibleChildren(HiddenComponent, VisibleChildren);
+				TargetComponent = VisibleChildren.IsEmpty() ? nullptr : VisibleChildren[0];
+			}
 		}
 
 		UActorComponent* SelectCandidateComponent = TargetComponent;
@@ -959,19 +990,25 @@ void FDetailsPanel::DrawCompoenetList(AActor* SelectedActor, UActorComponent*& O
 
 void FDetailsPanel::DrawSceneComponentNode(USceneComponent* Component, USceneComponent* Root, UActorComponent*& OutSelectedComponent)
 {
-	// 빌보드 같은 에디터 표시용 컴포넌트는 트리에 노출하지 않는다
-	if (!Component || Component->IsHiddenInDetails())
+	if (!Component)
 		return;
+
+	// 빌보드 같은 에디터 표시용 컴포넌트는 트리에 노출하지 않는다.
+	// 라이트 액터처럼 숨긴 빌보드가 루트여도 그 아래 컴포넌트는 보여야 하므로 자식은 그린다.
+	if (Component->IsHiddenInDetails())
+	{
+		TArray<USceneComponent*> VisibleChildren;
+		CollectVisibleChildren(Component, VisibleChildren);
+		for (USceneComponent* Child : VisibleChildren)
+		{
+			DrawSceneComponentNode(Child, Root, OutSelectedComponent);
+		}
+		return;
+	}
 
 	// 숨겨진 자식만 있는 노드가 펼침 화살표를 갖지 않도록 노출되는 자식만 센다
 	TArray<USceneComponent*> Children;
-	for (USceneComponent* Child : Component->GetAttachChildren())
-	{
-		if (Child && !Child->IsHiddenInDetails())
-		{
-			Children.Add(Child);
-		}
-	}
+	CollectVisibleChildren(Component, Children);
 
 	const bool bIsLeaf = Children.IsEmpty();
 	bIsEditingName = (EditingNameComponent == Component);

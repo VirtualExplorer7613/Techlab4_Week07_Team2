@@ -39,6 +39,7 @@ public:
 	void CreateDefaultTextures();
 	void CreateDefaultMeshes();
 	void CreateDefaultMaterial();
+	void CreateBillboardIconMaterial();
 	void CreateParticleMaterial();
 
 	template <typename T>

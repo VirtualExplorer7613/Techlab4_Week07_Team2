@@ -72,6 +72,11 @@ void UBillboardComponent::SubmitToRenderQueue(FRenderQueue& RenderQueue, const F
 	Packet.Mesh = QuadMesh;
 	Packet.Material = Material;
 	Packet.Model = RenderQueue.StoreWorldMatrix(BillboardWorldMatrix);
+	if (Material->ParamLayout == EMaterialParamLayout::Billboard)
+	{
+		Packet.MaterialParamData = &BillboardParams;
+		Packet.MaterialParamDataSize = sizeof(FBillboardMaterialParams);
+	}
 	RenderQueue.Add(Packet);
 }
 

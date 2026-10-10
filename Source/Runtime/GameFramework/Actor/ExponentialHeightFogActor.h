@@ -1,11 +1,11 @@
 #pragma once
 
-#include "GameFramework/Actor.h"
+#include "Info.h"
 #include "Component/BillboardComponent.h"
 #include "Component/ExponentialHeightFogComponent.h"
 
 
-class AExponentialHeightFogActor final : public AActor
+class AExponentialHeightFogActor final : public AInfo
 {
 	DECLARE_CLASS(AExponentialHeightFogActor, AActor)
 
@@ -19,10 +19,8 @@ public:
 	AExponentialHeightFogActor(const AExponentialHeightFogActor&) = delete;
 	AExponentialHeightFogActor operator=(const AExponentialHeightFogActor&) = delete;
 
-	UBillboardComponent* GetBillboardComponent() const { return BillboardComponent; }
 	UExponentialHeightFogComponent* GetExponentialHeightFogComponent() const { return ExponentialHeightFogComponent; }
 
 private:
 	UExponentialHeightFogComponent* ExponentialHeightFogComponent = nullptr;
-	UBillboardComponent* BillboardComponent = nullptr;
 };

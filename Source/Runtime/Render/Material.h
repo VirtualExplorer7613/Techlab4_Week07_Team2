@@ -12,7 +12,8 @@ enum class EMaterialParamLayout
 {
 	None,
 	StaticMesh,
-	ParticleSubUV
+	ParticleSubUV,
+	Billboard
 };
 
 struct FStaticMeshMaterialParams
@@ -21,6 +22,11 @@ struct FStaticMeshMaterialParams
 	FVector2 UVOffset;
 	float bOpaque; // 1이면 PS가 알파를 1로 출력한다
 	float Padding;
+};
+
+struct FBillboardMaterialParams
+{
+	FVector4 Tint = FVector4(1.f, 1.f, 1.f, 1.f);
 };
 
 class UMaterial : public UMaterialInterface

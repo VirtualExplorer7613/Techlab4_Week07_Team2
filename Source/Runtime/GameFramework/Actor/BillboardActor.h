@@ -6,6 +6,8 @@
 class ABillboardActor : public AActor
 {
 	DECLARE_CLASS(ABillboardActor, AActor);
+	REFLECT_START(ClassName)
+	REFLECT_END()
 public:
 	ABillboardActor();
 	virtual ~ABillboardActor();

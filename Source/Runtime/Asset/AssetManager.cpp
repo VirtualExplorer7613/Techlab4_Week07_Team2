@@ -117,6 +117,7 @@ void UAssetManager::Init(const FAssetLoadProgress& OnProgress)
 	Get().ScanAssets("Assets", OnProgress);
 	Get().CreateDefaultMeshes();
 	Get().CreateParticleMaterial();
+	Get().CreateBillboardIconMaterial();
 }
 
 void UAssetManager::ScanAssets(const fs::path& AssetRoot, const FAssetLoadProgress& OnProgress)
@@ -285,6 +286,29 @@ void UAssetManager::CreateDefaultMaterial()
 	DefaultMat->ParamLayout = EMaterialParamLayout::StaticMesh;
 	DefaultMat->ParamBuffer = RenderCommand::CreateConstantBuffer(sizeof(FStaticMeshMaterialParams));
 	RegisterAsset("DefaultMaterial", DefaultMat);
+}
+
+void UAssetManager::CreateBillboardIconMaterial()
+{
+	const std::pair<FString, FString> Icons[] =
+	{
+		{"SpotLightIconMaterial", "Assets/Icons/Lights/SpotLight.png"},
+		{"PointLightIconMaterial", "Assets/Icons/Lights/PointLight.png"},
+		{"DirectionalLightIconMaterial", "Assets/Icons/Lights/DirectionalLight.png"},
+		{"AmbientLightIconMaterial", "Assets/Icons/Lights/AmbientLight.png"}
+	};
+
+	for (auto [key, path] : Icons)
+	{
+		UMaterial* Material = NewObject<UMaterial>();
+		Material->Shader = FRenderResourceManager::GetShaderProgram("Resources/Shader/BillboardShader.hlsl");
+		Material->Textures.Add(GetAssetByPath<UTexture2D>(path));
+		Material->BlendState = EBlendState::Opaque;
+		Material->DepthStencilState = EDepthStencilState::ReadOnly;
+		Material->ParamLayout = EMaterialParamLayout::Billboard;
+		Material->ParamBuffer = RenderCommand::CreateConstantBuffer(256);
+		RegisterAsset(key, Material);
+	}
 }
 
 void UAssetManager::CreateParticleMaterial()
