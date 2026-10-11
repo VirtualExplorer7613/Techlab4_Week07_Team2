@@ -6,7 +6,7 @@
 #define LIGHTING_MODEL_BLINN_PHONG 3
 
 #ifndef LIGHTING_MODEL
-#define LIGHTING_MODEL LIGHTING_MODEL_PHONG
+#define LIGHTING_MODEL LIGHTING_MODEL_LAMBERT
 #endif
 
 static const float PI = 3.14159265358979323846f;
@@ -89,6 +89,9 @@ void ComputeLight(float3 N, float3 L, float3 V, float3 Albedo, float3 LightColor
     float RdotV = saturate(dot(R, V));
     float Norm = (Shininess + 2.0f) / (2.0f * PI);
     OutSpecular = SpecularColor * Norm * pow(RdotV, Shininess) * E * NdotL;
+#elif LIGHTING_MODEL == LIGHTING_MODEL_LAMBERT
+    OutDiffuse = Albedo / PI * NdotL * E;
+    OutSpecular = float3(0,0,0);
 #else
     OutSpecular = float3(0, 0, 0);
 #endif
