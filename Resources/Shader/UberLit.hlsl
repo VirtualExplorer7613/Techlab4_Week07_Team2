@@ -198,7 +198,7 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
     float alpha = bOpaque > 0.5f ? 1.0f : albedo.a;
     
 #if LIGHTING_MODEL_UNLIT
-    return float4(albedo.xyz, alpha);
+    return float4(albedo.xyz, 1.0f);
     
 #elif VIEWMODE_WORLDNORMAL
     return float4(normal * 0.5f + 0.5f, 1.0f);   // -1~1 노멀을 0~1 색으로
