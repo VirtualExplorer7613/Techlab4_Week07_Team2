@@ -11,9 +11,17 @@
 
 constexpr uint32 ObjectSlotBytes = 256;
 
+struct FViewConstants
+{
+	FMatrix VP;
+	FVector CameraPosition;
+	float   Padding = 0.0f;
+};
+
 struct FPerObjectConstants
 {
 	FMatrix World;
+	FMatrix WorldInvTranspose;
 };
 
 struct FSortEntry
@@ -88,7 +96,7 @@ public:
 	void RenderAll(FRenderQueue& InQueue, UCameraComponent* CameraComponent, const EViewMode ViewMode);
 
 	// Adapter가 계산한 ViewProjection을 직접 받아 View별 렌더 큐를 그린다.
-	void RenderAll(FRenderQueue& InQueue, const FMatrix& ViewProjection, const EViewMode ViewMode);
+	void RenderAll(FRenderQueue& InQueue, const FMatrix& ViewProjection, const FVector CameraLocation, const EViewMode ViewMode);
 
 	// 큐를 정렬해 불투명 패킷만 그린다. 반투명은 RenderTranslucent 호출 전까지 보관한다.
 	void RenderOpaque(const FMatrix& ViewProjection, const EViewMode ViewMode);
@@ -105,7 +113,7 @@ public:
 	void RenderTranslucent(const FMatrix& ViewProjection, const EViewMode ViewMode);
 
 	// 큐를 Material, Opaque, Mesh에 따라 정렬한다
-	void RenderQueueSorting(FRenderQueue& InQueue, const FMatrix& ViewProjection);
+	void RenderQueueSorting(FRenderQueue& InQueue, const FMatrix& ViewProjection, const FVector& CameraPosition);
 
 	// [측정 전용] RenderOpaque 직후에 호출한다. 불투명 패킷을 깊이 LESS_EQUAL·색 쓰기 없이 다시 그리며
 	// 패킷마다 오클루전 쿼리를 걸어, 최종 화면에 실제로 픽셀을 남긴 물체 수를 센다.
@@ -116,6 +124,23 @@ public:
 	void EndObjectConstants();
 
 	void SetLight(const FLightConstants& LightData);
+
+	// 오브젝트 칸에 World와 노멀 변환용 역전치를 함께 쓴다. 모든 칸 쓰기는 이 함수를 거친다.
+	inline void WriteObjectSlot(uint8* SlotBase, uint32 SlotIndex, const FMatrix& World)
+	{
+		FPerObjectConstants Constants;
+		Constants.World = World;
+		Constants.WorldInvTranspose = World.Inverse().GetTransposed();
+		std::memcpy(SlotBase + size_t(SlotIndex) * ObjectSlotBytes, &Constants, sizeof(Constants));
+	}
+
+	inline void WriteObjectSlot(uint8* SlotBase, uint32 SlotIndex, const FMatrix& World, const FMatrix& WorldInverse)
+	{
+		FPerObjectConstants Constants;
+		Constants.World = World;
+		Constants.WorldInvTranspose = WorldInverse.GetTransposed();
+		std::memcpy(SlotBase + size_t(SlotIndex) * ObjectSlotBytes, &Constants, sizeof(Constants));
+	}
 
 private:
 	// FIFO 소비용 배열의 용량만 재사용하며 매 View의 패킷 값은 새로 채운다.

@@ -9,11 +9,14 @@
 cbuffer Viewconstants : register(b0)
 {
     matrix VP;
+    float3 CameraLocation;
+    float ViewPadding;
 };
 
 cbuffer Worldconstants : register(b2)
 {
     matrix World;
+    matrix WorldInvTranspose;
 };
 
 cbuffer MaterialParams : register(b1)
@@ -21,7 +24,7 @@ cbuffer MaterialParams : register(b1)
     float4 BaseColor;
     float2 UVOffset;
     float bOpaque;
-    float Padding;
+    float Shininess;
 };
 
 struct FPointLightInfo
@@ -62,30 +65,51 @@ cbuffer LightConstants : register(b3)
     uint2 LightPadding;
 };
 
-float3 CalculatePointLight(FPointLightInfo info, float3 worldPos, float3 normal)
+// 라이트 하나가 표면에 주는 빛. Diffuse는 Albedo와 곱하고 Specular는 그 뒤에 더한다.
+struct FLightResult
+{
+    float3 Diffuse;
+    float3 Specular;
+};
+
+// 라이트 하나의 Blinn-Phong 계산. Lambert 모드도 같은 함수를 쓰고 Specular만 버린다.
+// N: 표면 노멀, L: 표면→라이트, V: 표면→카메라 (모두 정규화), Radiance: 색 × 세기 × 감쇠
+FLightResult BlinnPhong(float3 N, float3 L, float3 V, float3 Radiance)
+{
+    FLightResult Result;
+
+    float NdotL = saturate(dot(N, L));
+    Result.Diffuse = Radiance * NdotL;
+
+    float3 H = normalize(L + V);
+    float NdotH = saturate(dot(N, H));
+    // 빛을 받지 못하는 면(N·L <= 0)에는 하이라이트가 생기지 않게 한다.
+    Result.Specular = Radiance * pow(NdotH, max(Shininess, 1.0f)) * (NdotL > 0.0f ? 1.0f : 0.0f);
+
+    return Result;
+}
+
+FLightResult CalculatePointLight(FPointLightInfo info, float3 worldPos, float3 normal, float3 viewDir)
 {
     float4 PositionRadius = info.PositionRadius;
     float4 ColorIntensity = info.ColorIntensity;
     float4 FalloffEnabled = info.FalloffEnabled;
-        
-    float distance = length(PositionRadius.xyz - worldPos);
+
+    float3 toLight = PositionRadius.xyz - worldPos;
+    float distance = length(toLight);
+    float3 lightDir = toLight / max(distance, 0.0001f); // length를 한 번만 계산하고 0으로 나누기를 막는다
+
     float radius = max(PositionRadius.w, 0.001f);
-        
     float Basefalloff = saturate(1.0f - distance / radius);
     float falloff = pow(Basefalloff, max(FalloffEnabled.x, 0.001f));
-        
-    float enabled = FalloffEnabled.y;
-    float intensity = ColorIntensity.w;
-        
-    float3 lightDir = normalize(PositionRadius.xyz - worldPos);
-        
-    float pointNdotL = saturate(dot(normal, lightDir));
-    float3 pointLight = ColorIntensity.rgb * pointNdotL * falloff * enabled * intensity;
-    
-    return pointLight;
-};
 
-float3 CalculateSpotLightLight(FSpotLightInfo info, float3 worldPos, float3 normal)
+    float enabled = FalloffEnabled.y;
+    float3 radiance = ColorIntensity.rgb * ColorIntensity.w * falloff * enabled;
+
+    return BlinnPhong(normal, lightDir, viewDir, radiance);
+}
+
+FLightResult CalculateSpotLight(FSpotLightInfo info, float3 worldPos, float3 normal, float3 viewDir)
 {
     float4 PositionRadius = info.PositionRadius;
     float4 ColorIntensity = info.ColorIntensity;
@@ -93,65 +117,71 @@ float3 CalculateSpotLightLight(FSpotLightInfo info, float3 worldPos, float3 norm
     float4 OutAngleInvCosDiff = info.OutAngleInvCosDiff;
     float3 SpotFowardVector = normalize(info.FowardVector.xyz);
 
-    float distance = length(PositionRadius.xyz - worldPos);
+    float3 toLight = PositionRadius.xyz - worldPos;
+    float distance = length(toLight);
+    float3 lightDir = toLight / max(distance, 0.0001f); // length를 한 번만 계산하고 0으로 나누기를 막는다
+
     float radius = max(PositionRadius.w, 0.001f);
 
     //SpotLight는 거리에 따른 감쇠와 Cone에 따른 감쇠 두가지가 있다.
     float Distancefalloff = saturate(1.0f - distance / radius);
-        
+
     //콘의 어느 범위에 속하는가 = (cos(=spot 전방벡터와 -L 내적) - cosOuter) * (1 / (cosInner - cosOuter))
     //콘 감쇠 지수(FalloffEnabled.z)는 거리 감쇠 지수(FalloffEnabled.x)와 독립적이다 (D3D9 Falloff)
-    float3 lightDir = normalize(PositionRadius.xyz - worldPos);
-    float spotforwarddotL = dot(-lightDir, SpotFowardVector);
+    float spotforwarddotL = saturate(dot(-lightDir, SpotFowardVector));
     float Conefalloff = pow(saturate((spotforwarddotL - OutAngleInvCosDiff.x) * OutAngleInvCosDiff.y), max(FalloffEnabled.z, 0.001f));
     float falloff = pow(Distancefalloff, max(FalloffEnabled.x, 0.001f)) * Conefalloff;
-        
-    float enabled = FalloffEnabled.y;
-    float intensity = ColorIntensity.w;
-        
-    float spotNdotL = saturate(dot(normal, lightDir));
-    float3 spotLight = ColorIntensity.rgb * spotNdotL * falloff * enabled * intensity;
-    return spotLight;
-};
 
+    float enabled = FalloffEnabled.y;
+    float3 radiance = ColorIntensity.rgb * ColorIntensity.w * falloff * enabled;
+
+    return BlinnPhong(normal, lightDir, viewDir, radiance);
+}
 
 float3 CalculateAmbientLight(FAmbientLightInfo info)
 {
     return info.ColorIntensity.xyz * info.ColorIntensity.w;
-};
+}
 
-float3 CalculateDirectionalLight(FDirectionalLightInfo info, float3 worldPos, float3 normal)
+FLightResult CalculateDirectionalLight(FDirectionalLightInfo info, float3 normal, float3 viewDir)
 {
-    float directionNdotL = saturate(dot(normal, -info.Direction.xyz));
-    return info.ColorIntensity.xyz * info.ColorIntensity.w * directionNdotL;
-};
+    // Direction은 빛이 나아가는 방향이므로 뒤집어야 표면→라이트 방향이 된다.
+    float3 lightDir = normalize(-info.Direction.xyz);
+    float3 radiance = info.ColorIntensity.xyz * info.ColorIntensity.w;
 
-float3 CalculateLightning(float3 worldPos, float3 normal)
+    return BlinnPhong(normal, lightDir, viewDir, radiance);
+}
+
+// 직접광(Point·Spot·Directional)의 Diffuse/Specular 합. Ambient는 따로 더한다.
+FLightResult CalculateLighting(float3 worldPos, float3 normal, float3 viewDir)
 {
-    float3 totalLight = float3(0, 0, 0);
-    
+    FLightResult Total;
+    Total.Diffuse = float3(0, 0, 0);
+    Total.Specular = float3(0, 0, 0);
+
     //PointLight
     for (uint i = 0; i < PointLightCount; ++i)
     {
-        FPointLightInfo PointLight = PointLights[i];
-        totalLight += CalculatePointLight(PointLight, worldPos, normal);
+        FLightResult Light = CalculatePointLight(PointLights[i], worldPos, normal, viewDir);
+        Total.Diffuse += Light.Diffuse;
+        Total.Specular += Light.Specular;
     }
-    
+
     //SpotLight
     for (uint j = 0; j < SpotLightCount; ++j)
     {
-        FSpotLightInfo SpotLight = SpotLights[j];
-        totalLight += CalculateSpotLightLight(SpotLight, worldPos, normal);
+        FLightResult Light = CalculateSpotLight(SpotLights[j], worldPos, normal, viewDir);
+        Total.Diffuse += Light.Diffuse;
+        Total.Specular += Light.Specular;
     }
-    
-    //AmbientLight
-    totalLight += CalculateAmbientLight(AmbientLight);
-    
+
     //Directional Light
-    totalLight += CalculateDirectionalLight(DirectionalLight, worldPos, normal);
-    
-    return totalLight;
-};
+    FLightResult Directional = CalculateDirectionalLight(DirectionalLight, normal, viewDir);
+    Total.Diffuse += Directional.Diffuse;
+    Total.Specular += Directional.Specular;
+
+    return Total;
+}
 
 
 struct VS_INPUT
@@ -169,6 +199,10 @@ struct PS_INPUT
     float4 color : COLOR;
     float2 uv : TEXCOORD0;
     float3 worldPos : TEXCOORD1;
+#if LIGHTING_MODEL_GOURAUD
+    float3 Diffuse : TEXCOORD2;
+    float3 Specular : TEXCOORD3;
+#endif
 };
 
 Texture2D g_txColor : register(t0);
@@ -180,9 +214,16 @@ PS_INPUT mainVS(VS_INPUT input)
 
     output.worldPos = mul(float4(input.p, 1.0f), World).xyz;
     output.position = mul(mul(float4(input.p, 1.0f), World), VP);
+
+    // 비균등 스케일에서도 올바른 노멀값을 구하기 위해 역전치행렬 사용
+    output.normal = normalize(mul(float4(input.n, 0.0f), WorldInvTranspose).xyz);
     
-    // w=0으로 이동 성분을 빼고 월드 공간으로 보낸다. 비균등 스케일이면 역전치가 필요하다.
-    output.normal = mul(float4(input.n, 0.0f), World).xyz;
+#if LIGHTING_MODEL_GOURAUD
+    float3 viewDir = normalize(CameraLocation - output.worldPos);
+    FLightResult Light = CalculateLighting(output.worldPos, output.normal, viewDir);
+    output.Diffuse = Light.Diffuse;
+    output.Specular = Light.Specular;
+#endif
     output.color = input.c;
     output.uv = input.t;
     return output;
@@ -192,21 +233,36 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
 {
     float4 texColor = g_txColor.Sample(g_Sample, input.uv + UVOffset);
     float4 albedo = texColor * BaseColor;
-    
+
     float3 normal = normalize(input.normal);
-    
+
     // Opaque는 알파를 1로 고정한다. 뷰포트 RT를 ImGui가 알파 블렌딩으로 그리므로 알파가 남으면 비쳐 보인다
     float alpha = bOpaque > 0.5f ? 1.0f : albedo.a;
-    
+
 #if LIGHTING_MODEL_UNLIT
     return float4(albedo.xyz, 1.0f);
-    
+
 #elif VIEWMODE_WORLDNORMAL
     return float4(normal * 0.5f + 0.5f, 1.0f);   // -1~1 노멀을 0~1 색으로
+#endif
+   
+
+    float3 viewDir = normalize(CameraLocation - input.worldPos);   // 표면 → 카메라
+    float3 ambient = CalculateAmbientLight(AmbientLight);
     
-#else
-    float3 lightning = CalculateLightning(input.worldPos, normal);
-    float3 finalRGB = albedo.rgb * lightning;
+    float3 finalRGB = albedo.rgb;
+    
+#if LIGHTING_MODEL_GOURAUD
+    finalRGB = finalRGB * (ambient + input.Diffuse) + input.Specular;
     return float4(finalRGB, alpha);
 #endif
+
+FLightResult Light = CalculateLighting(input.worldPos, normal, viewDir);
+    
+#if LIGHTING_MODEL_PHONG
+    finalRGB =  finalRGB * (ambient + Light.Diffuse) + Light.Specular;
+ #else
+    finalRGB = finalRGB * (ambient + Light.Diffuse);
+#endif
+    return float4(finalRGB, alpha);
 }

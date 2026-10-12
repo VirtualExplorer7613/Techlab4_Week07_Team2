@@ -165,7 +165,7 @@ void UObjViewerEngine::RenderFrame()
 	BuildRenderQueue(RenderQueue);
 
 	GetEngineLoop().BeginBackbufferPass();
-	GetEngineLoop().GetRenderer()->RenderAll(RenderQueue, View * Projection, EViewMode::Lit_Phong);
+	GetEngineLoop().GetRenderer()->RenderAll(RenderQueue, View * Projection, GetCameraEye(), EViewMode::Lit_Phong);
 	GetEngineLoop().EndBackbufferPass();
 }
 

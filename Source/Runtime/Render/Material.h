@@ -21,7 +21,7 @@ struct FStaticMeshMaterialParams
 	FVector4 BaseColor;
 	FVector2 UVOffset;
 	float bOpaque; // 1이면 PS가 알파를 1로 출력한다
-	float Padding;
+	float Shininess;
 };
 
 struct FBillboardMaterialParams
@@ -47,6 +47,7 @@ public:
 
 	FVector4 BaseColor = FVector4(1, 1, 1, 1);
 	FVector2 UVScrollSpeed = FVector2(0.0f, 0.0f);
+	float Shininess = 32.f;   // Blinn-Phong 하이라이트 크기. 클수록 작고 날카롭다
 
 	bool bIsInstance = false;
 

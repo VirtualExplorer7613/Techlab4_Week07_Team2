@@ -208,7 +208,7 @@ bool FGPUOcclusion::Init()
 	CullCS = CompileComputeShader(Device, "Cull");
 	HiZParamsCB = CreateDefaultConstantBuffer(Device, sizeof(FHiZParams));
 	CullParamsCB = CreateDefaultConstantBuffer(Device, sizeof(FCullParams));
-	ViewCB = CreateDefaultConstantBuffer(Device, sizeof(FMatrix));
+	ViewCB = CreateDefaultConstantBuffer(Device, sizeof(FViewConstants));
 
 	// 가림막은 물체마다 256바이트 칸을 오프셋으로 바인딩해 그린다 (D3D11.1).
 	const bool bReady = BuildHiZCS && CullCS && HiZParamsCB && CullParamsCB && ViewCB &&
