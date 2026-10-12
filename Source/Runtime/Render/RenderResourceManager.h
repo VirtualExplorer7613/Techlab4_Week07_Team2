@@ -20,9 +20,9 @@ public:
 
 	static void Shutdown();
 
-	static FShaderProgram* GetShaderProgram(const FString& InPath);
+	static FShaderProgram* GetShaderProgram(const FString& InPath, const TArray<FShaderDefine>& Defines = {});
 private:
-	void LoadOrCompileShader(const FString& Path);
+	void LoadOrCompileShader(const FString& Path, const TArray<FShaderDefine>& Defines = {});
 
 	TMap<FString, TUniquePtr<FVertexShader>> VertexShaderMap;
 	TMap<FString, TUniquePtr<FPixelShader>>  PixelShaderMap;
