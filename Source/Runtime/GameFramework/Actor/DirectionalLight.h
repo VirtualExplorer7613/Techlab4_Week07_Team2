@@ -16,7 +16,9 @@ public:
 	virtual ~ADirectionalLight() override = default;
 
 	UDirectionalLightComponent* GetDirctionalLightComponent() const { return DirectionalLightComponent; }
+	UStaticMeshComponent* GetArrowComponent() const { return StaticMeshComponent; }
 
 private:
 	UDirectionalLightComponent* DirectionalLightComponent = nullptr;
+	UStaticMeshComponent* StaticMeshComponent = nullptr;
 };
