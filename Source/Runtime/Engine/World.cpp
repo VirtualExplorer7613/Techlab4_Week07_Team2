@@ -26,6 +26,8 @@
 
 #include "UObject/UObjectGlobals.h"
 
+#include "Component/LightComponent.h"
+
 DECLARE_CYCLE_STAT("Actor Tick", STAT_ActorTick); // Actor 틱 측정
 DECLARE_CYCLE_STAT("Update All Transforms", STAT_UpdateAllTransforms); // 각 Transform의 Update 시간 측정
 DECLARE_CYCLE_STAT("Gather Render Packets", STAT_GatherRenderPackets);
@@ -95,6 +97,8 @@ AActor* UWorld::SpawnActor(UClass* Class, FName InName, const FTransform* Transf
 			Scene.AddFogInfo(Fog->GetUUID(), Fog->GetFogInfo());
 		else if (UFireBallComponent* FireBall = Cast<UFireBallComponent>(Component))
 			Scene.RegisterFireBall(FireBall);
+		else if (ULightComponent* Light = Cast<ULightComponent>(Component))
+			Scene.AddLight(Light);
 	}
 
 	// 4. Level->Actors에 등록
@@ -153,6 +157,7 @@ void UWorld::ClearWorld()
 	// 그대로 두면 지워진 컴포넌트를 가리키는 프록시가 FScene에 남아 다음 프레임에 터진다.
 	Scene.RemoveAllPrimitives();
 	Scene.RemoveAllFogInfo();
+	Scene.RemoveAllLight();
 	for (ULevel* Level : Levels)
 	{
 		for (AActor* Actor : Level->Actors)
@@ -566,6 +571,10 @@ bool UWorld::DestroyActor(AActor* Actor)
 		else if (UExponentialHeightFogComponent* Fog = Cast<UExponentialHeightFogComponent>(Component))
 		{
 			Scene.RemoveFogInfo(Fog->GetUUID());
+		}
+		else if (ULightComponent* Light = Cast<ULightComponent>(Component))
+		{
+			Scene.RemoveLight(Light);
 		}
 	}
 

@@ -9,6 +9,7 @@
 
 constexpr uint32 ObjectSlotBytes = 256;
 constexpr uint32 MaxFireBalls = 16;
+constexpr uint32 MaxLights = 16;
 
 struct FPerObjectConstants
 {
@@ -53,6 +54,25 @@ struct alignas(16) FFireBallLightConstants
 	uint32 Padding[3] = {};
 };
 
+struct alignas(16) FLight
+{
+	FVector4 PositionRadius; // xyz: 위치, w: 반경
+	FVector4 ColorIntensity; // rgb: 색상, w: 강도
+	FVector4 DirectionFalloff; // xyz: 라이트 방향, w: 반경 감쇠
+	uint32 enabled;				// 라이트 사용 여부
+	uint32 LightType;		 // Light Type
+	
+	float InnerConeCos;		// Spot일 때 안쪽 원뿔 각도 cos
+	float OuterConeCos;		// Spot일 때 바깥쪽 원뿔 각도 cos
+};
+
+struct alignas(16) FLightConstants
+{
+	FLight Light[MaxLights];
+	uint32 LightCount;
+	uint32 Padding[3] = {};
+};
+
 class FRenderer
 {
 public:
@@ -90,6 +110,8 @@ public:
 	void EndObjectConstants();
 
 	void SetFireBallLight(const FFireBallLightConstants& LightConstants);
+
+	void SetLight(const FLightConstants& LightDataConstant);
 
 private:
 	// FIFO 소비용 배열의 용량만 재사용하며 매 View의 패킷 값은 새로 채운다.
@@ -130,4 +152,7 @@ private:
 
 	TUniquePtr<FConstantBuffer> FireBallLightCB;
 	FFireBallLightConstants FireBallLightData{};
+
+	TUniquePtr<FConstantBuffer> LightCB;
+	FLightConstants LightData{};
 };

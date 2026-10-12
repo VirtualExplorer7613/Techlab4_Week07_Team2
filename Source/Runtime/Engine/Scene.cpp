@@ -1,5 +1,7 @@
 ﻿#include "EnginePCH.h"
 #include "Scene.h"
+#include "Component/LightComponent.h"
+#include "LightSceneProxy.h"
 
 void FScene::AddPrimitive(UPrimitiveComponent* Component)
 {
@@ -284,4 +286,120 @@ void FScene::UnregisterFireBall(UFireBallComponent* FireBall)
 			return;
 		}
 	}
+}
+
+void FScene::AddLight(ULightComponent* Component)
+{
+	if (!Component || !Component->SceneLightProxy) return;
+
+	FLightSceneProxy* Proxy = new FLightSceneProxy(Component);
+	Proxy->Scene = this;
+	Proxy->PackedIndex = LightProxies.Num();
+	Component->SceneLightProxy = Proxy;
+
+	LightProxies.Add(Proxy);
+}
+
+void FScene::RemoveLight(ULightComponent* Component)
+{
+	if (!Component || !Component->SceneLightProxy) return;
+
+	FLightSceneProxy* TargetProxy = Component->SceneLightProxy;
+	if (!TargetProxy) return;
+
+	const uint32 Index = static_cast<uint32>(TargetProxy->PackedIndex);
+
+	LightProxies.RemoveAtSwap(Index);
+
+	if (Index < static_cast<uint32>(LightProxies.Num()))
+	{
+		LightProxies[Index]->PackedIndex = static_cast<int32>(Index);
+	}
+
+	Component->SceneLightProxy = nullptr;
+	delete TargetProxy;
+}
+
+void FScene::RemoveAllLight()
+{
+	for (FLightSceneProxy* Proxy : LightProxies)
+	{
+		if (ULightComponent* Component = Proxy->GetComponent())
+		{
+			Component->SceneLightProxy = nullptr;
+		}
+		delete Proxy;
+	}
+
+	LightProxies.Reset();
+}
+
+void FScene::UpdateLight(FRenderer* Renderer)
+{
+	if (!Renderer)
+	{
+		return;
+	}
+
+	FLight Data{};
+	FLightConstants Constants{};
+
+	Constants.LightCount = 0;
+
+	// 기본값: 활성 FireBall 없음
+	Data.PositionRadius = FVector4(0, 0, 0, 0);
+	Data.ColorIntensity = FVector4(0, 0, 0, 0);
+	Data.DirectionFalloff = FVector4(1, 0, 0, 0);
+
+	for (FLightSceneProxy* LightProxy : LightProxies)
+	{
+		LightProxy->UpdateTransform();
+		LightProxy->UpdateParameters();
+
+		if (Constants.LightCount >= MaxLights)
+		{
+			break;
+		}
+
+		if (!LightProxy)
+		{
+			continue;
+		}
+
+		const FVector Position = LightProxy->GetPosition();
+		const FVector Direction = LightProxy->GetDirection();
+		const FVector4 Color = LightProxy->GetColor();
+		const float Intensity = LightProxy->GetIntensity();
+		const float FallOff = LightProxy->GetFallOff();
+		// TODO: radius 필요한 Light 의 경우를 위해 수정해야 함
+		const float Radius = LightProxy->GetRadius();
+		
+		Data.LightType = LightProxy->GetLightType();
+		Data.PositionRadius = FVector4(
+			Position.X,
+			Position.Y,
+			Position.Z,
+			Radius
+		);
+
+		Data.ColorIntensity = FVector4(
+			Color.X,
+			Color.Y,
+			Color.Z,
+			Intensity
+		);
+
+		Data.DirectionFalloff = FVector4(
+			Direction,
+			FallOff
+		);
+
+		Data.enabled = LightProxy->bVisible;
+		Data.InnerConeCos = LightProxy->GetInnerConeCos();
+		Data.OuterConeCos = LightProxy->GetOuterConeCos();
+
+		Constants.Light[Constants.LightCount] = Data;
+		Constants.LightCount++;
+	}
+	Renderer->SetLight(Constants);
 }

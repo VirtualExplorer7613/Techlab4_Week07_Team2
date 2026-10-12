@@ -9,6 +9,9 @@
 #include "Render/FogInfo.h"
 #include "Render/Renderer.h"
 
+class FLightSceneProxy;
+class ULightComponent;
+
 struct FExponentialHeightFogSceneInfo
 {
 	uint32 Id;
@@ -58,4 +61,12 @@ public:
 	bool bElementListChanged = false;
 	
 	TArray<UFireBallComponent*> FireBallComponents;
+
+	// Light Proxy 관련
+	void AddLight(ULightComponent* Component);
+	void RemoveLight(ULightComponent* Component);
+	void RemoveAllLight();
+	void UpdateLight(FRenderer* Renderer);
+
+	TArray<FLightSceneProxy*> LightProxies;
 };
