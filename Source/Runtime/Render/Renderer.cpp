@@ -68,6 +68,12 @@ bool FRenderer::Init()
 	SpotLightCB = RenderCommand::CreateConstantBuffer(sizeof(FSpotLightConstants));
 	PointLightCB = RenderCommand::CreateConstantBuffer(sizeof(FPointLightConstants));
 	CameraCB = RenderCommand::CreateConstantBuffer(sizeof(FCameraConstants));
+	AmbientLightCB = RenderCommand::CreateConstantBuffer(sizeof(FAmbientLightConstants));
+	DirectionalLightCB =RenderCommand::CreateConstantBuffer(sizeof(FDirectionalLightConstants));
+
+	// 첫 렌더링 전에 조명이 없는 상태로 초기화
+	SetAmbientLight(FAmbientLightConstants{});
+	SetDirectionalLight(FDirectionalLightConstants{});
 
 	GPUOcclusion.Init();   // 실패해도 오클루전만 못 쓸 뿐 렌더링은 된다
 
@@ -154,6 +160,11 @@ void FRenderer::RenderOpaque(const FMatrix& ViewProjection)
 
 	RenderCommand::BindConstantBuffer(5, PointLightCB.get(), LightStages);
 
+	RenderCommand::BindConstantBuffer(7, AmbientLightCB.get(), LightStages);
+
+	RenderCommand::BindConstantBuffer(8, DirectionalLightCB.get(), LightStages);
+
+
 	DrawStaticGroups();
 	DrawPackets(0, FirstTranslucentIndex, ViewProjection);
 }
@@ -165,6 +176,10 @@ void FRenderer::RenderTranslucent(const FMatrix& ViewProjection)
 
 	RenderCommand::BindConstantBuffer(4, SpotLightCB.get(),	EShaderBindFlagBits::Pixel);
 	RenderCommand::BindConstantBuffer(5, PointLightCB.get(), EShaderBindFlagBits::Pixel);
+
+	RenderCommand::BindConstantBuffer(7, AmbientLightCB.get(), EShaderBindFlagBits::Pixel);
+
+	RenderCommand::BindConstantBuffer(8, DirectionalLightCB.get(), EShaderBindFlagBits::Pixel);
 
 	DrawPackets(FirstTranslucentIndex, SortEntries.Num(), ViewProjection);
 	RenderPackets.Reset();
@@ -575,4 +590,14 @@ void FRenderer::SetCameraWorldPos(const FVector& Position)
 
 	// Gouraud에서도 specular를 계산할 수 있도록 VS와 PS 양쪽에 연결
 	RenderCommand::BindConstantBuffer(6,CameraCB.get(),	EShaderBindFlagBits::Vertex | EShaderBindFlagBits::Pixel);
+}
+
+void FRenderer::SetAmbientLight(const FAmbientLightConstants& Constants)
+{
+	RenderCommand::UpdateBufferData(AmbientLightCB.get(), &Constants, sizeof(FAmbientLightConstants));
+}
+
+void FRenderer::SetDirectionalLight(const FDirectionalLightConstants& Constants)
+{
+	RenderCommand::UpdateBufferData(DirectionalLightCB.get(), &Constants, sizeof(FDirectionalLightConstants));
 }

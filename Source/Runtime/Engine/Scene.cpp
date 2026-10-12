@@ -416,6 +416,34 @@ void FScene::UnregisterAmbientLight(UAmbientLightComponent* Light)
 	}
 }
 
+void FScene::UpdateAmbientLight(FRenderer* Renderer)
+{
+	if (!Renderer)
+		return;
+
+	FAmbientLightConstants Constants{};
+
+	for (UAmbientLightComponent* Light : AmbientLightComponents)
+	{
+		if (!Light || !Light->IsVisible() || !Light->IsActive())
+			continue;
+
+		const float Intensity = Light->GetIntensity();
+
+		if (Intensity <= 0.0f)
+			continue;
+
+		const FVector4& Color = Light->GetLightColor();
+
+		Constants.Color.X += Color.X * Intensity;
+		Constants.Color.Y += Color.Y * Intensity;
+		Constants.Color.Z += Color.Z * Intensity;
+	}
+
+	// 라이트가 없어도 0을 업로드한다.
+	Renderer->SetAmbientLight(Constants);
+}
+
 void FScene::RegisterDirectionalLight(UDirectionalLightComponent* Light)
 {
 	if (!Light)
@@ -440,6 +468,39 @@ void FScene::UnregisterDirectionalLight(UDirectionalLightComponent* Light)
 			return;
 		}
 	}
+}
+
+void FScene::UpdateDirectionalLight(FRenderer* Renderer)
+{
+	if (!Renderer)
+		return;
+
+	FDirectionalLightConstants Constants{};
+
+	for (UDirectionalLightComponent* Light : DirectionalLightComponents)
+	{
+		if (!Light || !Light->IsVisible() || !Light->IsActive())
+			continue;
+
+		const float Intensity = Light->GetIntensity();
+
+		if (Intensity <= 0.0f)
+			continue;
+
+		if (Constants.LightCount >= MaxDirectionalLights)
+			break;
+
+		const FVector Direction = Light->GetLightDirection();
+		const FVector4& Color = Light->GetLightColor();
+
+		FDirectionalLight& Data = Constants.Lights[Constants.LightCount++];
+
+		Data.Direction = FVector4(Direction.X, Direction.Y, Direction.Z, 0.0f);
+
+		Data.ColorIntensity = FVector4(Color.X,	Color.Y, Color.Z, Intensity);
+	}
+	// 마지막 라이트가 삭제되면 LightCount = 0을 전달한다.
+	Renderer->SetDirectionalLight(Constants);
 }
 
 void FScene::RegisterPointLight(UPointLightComponent* Light)

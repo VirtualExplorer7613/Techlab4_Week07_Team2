@@ -419,6 +419,8 @@ void UEditorEngine::RenderMultipleViewports()
 			ViewWorld->GetScene().UpdateFireBallLight(Renderer);
 			ViewWorld->GetScene().UpdateSpotLight(Renderer);
 			ViewWorld->GetScene().UpdatePointLight(Renderer);
+			ViewWorld->GetScene().UpdateAmbientLight(Renderer);
+			ViewWorld->GetScene().UpdateDirectionalLight(Renderer);
 
 			CapturedWorld = ViewWorld;
 		}
@@ -452,6 +454,8 @@ void UEditorEngine::RenderMultipleViewports()
 			ViewWorld->GetScene().UpdateFireBallLight(Renderer);
 			ViewWorld->GetScene().UpdateSpotLight(Renderer);
 			ViewWorld->GetScene().UpdatePointLight(Renderer);
+			ViewWorld->GetScene().UpdateAmbientLight(Renderer);
+			ViewWorld->GetScene().UpdateDirectionalLight(Renderer);
 			CapturedWorld = ViewWorld;
 		}
 

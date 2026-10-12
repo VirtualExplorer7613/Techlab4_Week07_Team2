@@ -66,6 +66,24 @@ cbuffer CameraConstants : register(b6)
     float4 CameraWorldPos; // xyz: 월드 위치, w: 사용하지 않음
 };
 
+cbuffer AmbientLightConstants : register(b7)
+{
+    float4 AmbientLightColor;
+};
+
+struct DirectionalLight
+{
+    float4 ColorIntensity;
+    float4 Direction;
+};
+
+cbuffer DirectionalLightConstants : register(b8)
+{
+    DirectionalLight DirectionalLights[16];
+    uint DirectionalLightCount;
+    float3 DirectionalLightPadding;
+};
+
 struct VS_INPUT
 {
     float3 p : POSITION; // Input position from vertex buffer
@@ -89,24 +107,34 @@ SamplerState g_Sample : register(s0);
 
 // 기존 화면과 비교하기 위해 기존 고정값을 유지한다.
 // LightDir은 빛이 진행하는 방향이다.
-static const float3 LightDir = normalize(float3(0.5f, 0.5f, -1.0f));
-static const float3 LightColor = float3(0.5f, 0.5f, 0.5f);
-static const float3 AmbientColor = float3(0.5f, 0.5f, 0.5f);
+// static const float3 LightDir = normalize(float3(0.5f, 0.5f, -1.0f));
+// static const float3 LightColor = float3(0.5f, 0.5f, 0.5f);
+// static const float3 AmbientColor = float3(0.5f, 0.5f, 0.5f);
 
 static const float Shininess = 10.0f;
 
 float3 CalculateAmbientLight()
 {
-    return AmbientColor;
+    return AmbientLightColor.rgb;
 }
 
 float3 CalculateDirectionalLight(float3 N)
 {
-    // N dot L에서 L은 표면 -> 광원 방향이다.
-    float3 L = -LightDir;
-    float NdotL = saturate(dot(N, L));
+    float3 total = float3(0, 0, 0);
 
-    return LightColor * NdotL;
+    for (uint i = 0; i < DirectionalLightCount; ++i)
+    {
+        DirectionalLight light = DirectionalLights[i];
+
+        // 저장된 것은 빛의 진행 방향이다.
+        // N·L에는 표면 → 광원 방향이 필요하다.
+        float3 L = -light.Direction.xyz;
+        float NdotL = saturate(dot(N, L));
+
+        total += light.ColorIntensity.rgb * light.ColorIntensity.w * NdotL;
+    }
+
+    return total;
 }
 
 float3 CalculatePointLight(PointLight light, float3 worldPos, float3 N)
@@ -191,13 +219,110 @@ float3 CalculateDiffuseLighting(float3 worldPos, float3 N)
     return lighting + totalPointLight + totalSpotLight;
 }
 
+// 광원 종류와 무관한 Blinn-Phong 반사광 계수
+float CalculateBlinnPhongSpecular(float3 N, float3 L, float3 V)
+{
+    // 광원이나 카메라를 등지는 면에는 반사광을 적용하지 않는다.
+    if (dot(N, L) <= 0.0f || dot(N, V) <= 0.0f)
+        return 0.0f;
+
+    float3 halfVector = L + V;
+    float lengthSquared = dot(halfVector, halfVector);
+
+    // 서로 반대인 L과 V의 합은 정규화할 수 없다.
+    if (lengthSquared <= 0.000001f)
+        return 0.0f;
+
+    float3 H = halfVector * rsqrt(lengthSquared);
+
+    return pow(saturate(dot(N, H)), Shininess);
+}
+
 float3 CalculateSpecularLighting(float3 worldPos, float3 N, float3 V)
 {
-    float3 L = -LightDir;
-    float3 H = normalize(L + V);
-    float specular = pow(saturate(dot(N, H)), Shininess);
+    float3 total = float3(0, 0, 0);
     
-    return LightColor * specular;
+    // Directional Light
+
+    for (uint i = 0; i < DirectionalLightCount; ++i)
+    {
+        DirectionalLight light = DirectionalLights[i];
+
+        // 저장된 진행 방향의 반대가 표면 → 광원 방향이다.
+        float3 L = -light.Direction.xyz;
+
+        float specular = CalculateBlinnPhongSpecular(N, L, V);
+
+        total += light.ColorIntensity.rgb * light.ColorIntensity.w * specular;
+    }
+
+    // Point Light
+    for (uint j = 0; j < PointLightCount; ++j)
+    {
+        PointLight light = PointLights[j];
+
+        float3 toLight = light.PositionRadius.xyz - worldPos;
+        float distanceToLight = length(toLight);
+        float radius = max(light.PositionRadius.w, 0.001f);
+
+        if (distanceToLight <= 0.00001f || distanceToLight >= radius)
+            continue;
+
+        float3 L = toLight / distanceToLight;
+        float specular = CalculateBlinnPhongSpecular(N, L, V);
+
+        // 기존 Point Diffuse와 동일한 거리 감쇠
+        float baseFalloff = saturate(1.0f - distanceToLight / radius);
+        float falloff = pow(baseFalloff, max(light.FalloffEnabled.x, 0.001f));
+
+        total += light.ColorIntensity.rgb * light.ColorIntensity.w * specular * falloff * light.FalloffEnabled.y;
+    }
+
+    // Spot Light
+    for (uint k = 0; k < SpotLightCount; ++k)
+    {
+        SpotLight light = SpotLights[k];
+
+        float3 toLight = light.PositionRadius.xyz - worldPos;
+        float distanceToLight = length(toLight);
+        float radius = light.PositionRadius.w;
+
+        if (distanceToLight <= 0.00001f || distanceToLight >= radius)
+            continue;
+
+        float3 L = toLight / distanceToLight;
+        float specular = CalculateBlinnPhongSpecular(N, L, V);
+
+        // 광원의 진행 방향과 광원 → 표면 방향을 비교한다.
+        float3 forward = normalize(light.DirectionCosOuter.xyz);
+        float cosTheta = dot(forward, -L);
+
+        float cosOuter = light.DirectionCosOuter.w;
+        float cosInner = light.ConeParams.x;
+        float coneWidth = cosInner - cosOuter;
+
+        // 기존 Spot Diffuse와 동일한 원뿔 감쇠
+        float coneFactor;
+
+        if (coneWidth > 0.000001f)
+        {
+            coneFactor = saturate((cosTheta - cosOuter) / coneWidth);
+        }
+        else
+        {
+            coneFactor = cosTheta >= cosOuter ? 1.0f : 0.0f;
+        }
+
+        coneFactor = pow(coneFactor, light.ConeParams.y);
+
+        // 기존 Spot Diffuse와 동일한 거리 감쇠
+        float distanceFactor = saturate(1.0f - distanceToLight / radius);
+        distanceFactor *= distanceFactor;
+
+        total += light.ColorIntensity.rgb * light.ColorIntensity.w * specular * distanceFactor * coneFactor;
+    }
+
+    return total;
 }
 
 PS_INPUT mainVS(VS_INPUT input)

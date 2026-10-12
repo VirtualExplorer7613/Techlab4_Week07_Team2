@@ -51,15 +51,19 @@ public:
 	void RegisterAmbientLight(UAmbientLightComponent* Light);
 	void UnregisterAmbientLight(UAmbientLightComponent* Light);
 	void RemoveAllAmbientLights(){AmbientLightComponents.Reset();}
+	void UpdateAmbientLight(FRenderer* Renderer);
 
 	void RegisterDirectionalLight(UDirectionalLightComponent* Light);
 	void UnregisterDirectionalLight(UDirectionalLightComponent* Light);
 	void RemoveAllDirectionalLights(){DirectionalLightComponents.Reset();}
+	void UpdateDirectionalLight(FRenderer* Renderer);
 
 	void RegisterPointLight(UPointLightComponent* Light);
 	void UnregisterPointLight(UPointLightComponent* Light);
 	void UpdatePointLight(FRenderer* Renderer);
 	void RemoveAllPointLights(){PointLightComponents.Reset();}
+
+
 
 	TArray<FPrimitiveSceneProxy*> Proxies;
 	TArray<FPrimitiveSceneProxy*> DirtyProxies;

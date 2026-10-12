@@ -56,6 +56,26 @@ struct alignas(16) FFireBallLightConstants
 
 constexpr uint32 MaxPointLights = 16;
 
+struct alignas(16) FAmbientLightConstants
+{
+	FVector4 Color = FVector4(0, 0, 0, 0);
+};
+
+constexpr uint32 MaxDirectionalLights = 16;
+
+struct alignas(16) FDirectionalLight
+{
+	FVector4 ColorIntensity;    // rgb: 색상, w: 밝기
+	FVector4 Direction; // xyz: 빛이 향하는 방향, w: cos(Outer)
+};
+
+struct alignas(16) FDirectionalLightConstants
+{
+	FDirectionalLight Lights[MaxDirectionalLights];
+	uint32 LightCount = 0;
+	uint32 Padding[3] = {};
+};
+
 struct alignas(16) FPointLight
 {
 	FVector4 PositionRadius;
@@ -70,7 +90,7 @@ struct alignas(16) FPointLightConstants
 	uint32 Padding[3] = {};
 };
 
-//
+
 constexpr uint32 MaxSpotLights = 16;
 
 struct alignas(16) FSpotLight
@@ -133,6 +153,8 @@ public:
 	void SetSpotLight(const FSpotLightConstants& Constants);
 	void SetPointLight(const FPointLightConstants& Constants);
 	void SetCameraWorldPos(const FVector& Position);
+	void SetAmbientLight(const FAmbientLightConstants& Constants);
+	void SetDirectionalLight(const FDirectionalLightConstants& Constants);
 
 	void SetViewMode(EViewMode Mode)
 	{
@@ -186,6 +208,8 @@ private:
 	TUniquePtr<FConstantBuffer> SpotLightCB;
 	TUniquePtr<FConstantBuffer> PointLightCB;
 	TUniquePtr<FConstantBuffer> CameraCB;
+	TUniquePtr<FConstantBuffer> AmbientLightCB;
+	TUniquePtr<FConstantBuffer> DirectionalLightCB;
 
 	EViewMode CurrentViewMode = EViewMode::Lit_Lambert;
 };
