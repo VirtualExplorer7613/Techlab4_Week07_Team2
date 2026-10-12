@@ -554,7 +554,9 @@ void UEditorEngine::RenderOpaquePass(const int32 ViewIndex, const FRenderingInfo
 
 	const bool bDrawPrimitives = SettingsPanel->GetSettings().bDrawPrimitives;
 	// 삼각형 연결은 유지하고 View별 Fill Mode만 선택한다.
-	const ERasterizerState SceneRasterizerState = MultipleViewportsAdapter.IsViewWireframe(ViewIndex)
+
+	EViewMode ViewMode = MultipleViewportsAdapter.GetViewMode(ViewIndex);
+	const ERasterizerState SceneRasterizerState = ViewMode == EViewMode::Wireframe
 		? ERasterizerState::Wireframe : ERasterizerState::SolidBack;
 
 	// 렌더 루프 — 반드시 RenderAll보다 먼저
@@ -568,7 +570,7 @@ void UEditorEngine::RenderOpaquePass(const int32 ViewIndex, const FRenderingInfo
 		RenderCommand::SetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		// 반투명은 Grid 뒤에 합성되어야 하므로 불투명만 먼저 그린다.
 		Renderer->RenderQueueSorting(RenderQueue, ViewProjection);
-		Renderer->RenderOpaque(ViewProjection);
+		Renderer->RenderOpaque(ViewProjection, ViewMode);
 		// 장면 Wireframe이 Grid·Gizmo·UI로 전파되지 않도록 복원한다.
 		RenderCommand::SetRasterizerState(ERasterizerState::SolidBack);
 	}
@@ -580,7 +582,7 @@ void UEditorEngine::RenderOpaquePass(const int32 ViewIndex, const FRenderingInfo
 		// Grid 파이프라인이 바꾼 상태를 장면 기준으로 되돌린 뒤 반투명을 먼 것부터 그린다.
 		RenderCommand::SetRasterizerState(SceneRasterizerState);
 		RenderCommand::SetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		Renderer->RenderTranslucent(ViewProjection);
+		Renderer->RenderTranslucent(ViewProjection, ViewMode);
 		RenderCommand::SetRasterizerState(ERasterizerState::SolidBack);
 	}
 

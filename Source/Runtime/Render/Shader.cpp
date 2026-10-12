@@ -27,8 +27,8 @@ namespace
 	}
 }
 
-FShaderProgram::FShaderProgram(FVertexShader* InVertexShader, FPixelShader* InPixelShader)
-	:VertexShader(InVertexShader), PixelShader(InPixelShader)
+FShaderProgram::FShaderProgram(FVertexShader* InVertexShader, FPixelShader* InPixelShader, const FString& InSourcePath, const FString& InPermutation)
+	:VertexShader(InVertexShader), PixelShader(InPixelShader), SourcePath(InSourcePath), Permutation(InPermutation)
 {
 }
 

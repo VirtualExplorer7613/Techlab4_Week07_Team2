@@ -29,10 +29,11 @@ public:
 		//Uber Shader Compile & Generate Shader Program
 
 		Get().PermutationTable["Resources/Shader/UberLit.hlsl"] = {
-			{ "GOURAUD", { {"LIGHTING_MODEL_GOURAUD","1"}, {nullptr,nullptr} } },
-			{ "LAMBERT", { {"LIGHTING_MODEL_LAMBERT","1"}, {nullptr,nullptr} } },
-			{ "PHONG",   { {"LIGHTING_MODEL_PHONG","1"},   {nullptr,nullptr} } },
-			{ "UNLIT",   { {"LIGHTING_MODEL_UNLIT","1"},   {nullptr,nullptr} } },
+			{ "GOURAUD",		{ {"LIGHTING_MODEL_GOURAUD","1"},	{nullptr,nullptr} } },
+			{ "LAMBERT",		{ {"LIGHTING_MODEL_LAMBERT","1"},	{nullptr,nullptr} } },
+			{ "PHONG",			{ {"LIGHTING_MODEL_PHONG","1"},		{nullptr,nullptr} } },
+			{ "UNLIT",			{ {"LIGHTING_MODEL_UNLIT","1"},		{nullptr,nullptr} } },
+			{ "WORLDNORMAL",	{ {"VIEWMODE_WORLDNORMAL","1"},		{nullptr,nullptr} } },
 		};
 
 		Get().ScanShaders("Resources/Shader");

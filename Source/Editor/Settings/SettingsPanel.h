@@ -12,6 +12,7 @@ struct FEditorSettings
 {
 	// 에디터 렌더 옵션과 Multiple Viewports 레이아웃의 영구 설정을 한곳에 담는다.
 	// Toggles
+	// 구형 editor.ini의 공통 Wireframe 키. 읽기만 하며 ViewMode가 저장되지 않은 View를 Wireframe으로 복원한다.
 	bool bWireframe = false;
 	bool bDrawPrimitives = true;
 	bool bDrawBoundingBox = false;
@@ -34,7 +35,8 @@ struct FEditorSettings
     float ViewFov[4]{};
     float ViewOrthoWidth[4]{};
     int32 ViewPreset[4]{-1,-1,-1,-1};
-    int32 ViewWireframe[4]{-1,-1,-1,-1};
+    // EViewMode 정수값. -1이면 미저장이라 기본값(또는 구형 Wireframe 키)을 쓴다.
+    int32 ViewMode[4]{-1,-1,-1,-1};
     // View별 카메라 Transform은 Quaternion 그대로 저장해 재실행 후 같은 시점을 복원한다.
     // 구형 editor.ini에 키가 없으면 Saved가 false로 남아 Adapter의 초기 Transform을 유지한다.
     FVector ViewLocation[4]{};

@@ -113,7 +113,6 @@ bool FSettingsPanel::SaveSettings() const
 	}
 
 	File << "[Rendering]\n";
-	File << "Wireframe=" << Settings.bWireframe << "\n";
 	File << "DrawPrimitives=" << Settings.bDrawPrimitives << "\n";
 	File << "DrawBoundingBox=" << Settings.bDrawBoundingBox << "\n";
 	File << "ShowUUID=" << Settings.bShowUUID << "\n";
@@ -139,7 +138,7 @@ bool FSettingsPanel::SaveSettings() const
         File << "View" << Index << "Fov=" << Snapshot.ViewFov[Index] << "\n";
         File << "View" << Index << "OrthoWidth=" << Snapshot.ViewOrthoWidth[Index] << "\n";
         File << "View" << Index << "Preset=" << Snapshot.ViewPreset[Index] << "\n";
-        File << "View" << Index << "Wireframe=" << Snapshot.ViewWireframe[Index] << "\n";
+        File << "View" << Index << "ViewMode=" << Snapshot.ViewMode[Index] << "\n";
         File << "View" << Index << "LocationX=" << Snapshot.ViewLocation[Index].X << "\n";
         File << "View" << Index << "LocationY=" << Snapshot.ViewLocation[Index].Y << "\n";
         File << "View" << Index << "LocationZ=" << Snapshot.ViewLocation[Index].Z << "\n";
@@ -196,8 +195,11 @@ bool FSettingsPanel::LoadSettings()
                         Settings.ViewOrthoWidth[Index] = FMath::Clamp(Value, 0.01f, 1000000.0f);
                     else if (Key == Prefix + "Preset" && Value >= 0 && Value <= 7 && Value == static_cast<int32>(Value))
                         Settings.ViewPreset[Index] = static_cast<int32>(Value);
-                    else if (Key == Prefix + "Wireframe" && (Value == 0 || Value == 1))
-                        Settings.ViewWireframe[Index] = static_cast<int32>(Value);
+                    else if (Key == Prefix + "ViewMode" && Value >= 0 && Value < static_cast<int32>(EViewMode::MAX) && Value == static_cast<int32>(Value))
+                        Settings.ViewMode[Index] = static_cast<int32>(Value);
+                    // 구형 ini의 View별 Wireframe 키는 ViewMode가 없을 때만 Wireframe 모드로 옮긴다.
+                    else if (Key == Prefix + "Wireframe" && Value == 1 && Settings.ViewMode[Index] < 0)
+                        Settings.ViewMode[Index] = static_cast<int32>(EViewMode::Wireframe);
                     else if (Key == Prefix + "LocationX")
                     {
                         Settings.ViewLocation[Index].X = Value;
@@ -299,7 +301,7 @@ void FSettingsPanel::ReadViewportSettings(FEditorSettings& Out) const
         Out.ViewFov[Index] = Camera.Projection.FovDegrees;
         Out.ViewOrthoWidth[Index] = Camera.Projection.OrthoWidth;
         Out.ViewPreset[Index] = static_cast<int32>(ViewportAdapter->GetCameraPreset(Index));
-        Out.ViewWireframe[Index] = ViewportAdapter->IsViewWireframe(Index) ? 1 : 0;
+        Out.ViewMode[Index] = static_cast<int32>(ViewportAdapter->GetViewMode(Index));
         Out.ViewLocation[Index] = Camera.Transform.Location;
         Out.ViewRotation[Index] = Camera.Transform.Rotation;
         Out.bViewLocationSaved[Index] = true;
@@ -327,6 +329,11 @@ void FSettingsPanel::ApplyViewportSettings()
         if (Settings.bViewLocationSaved[Index]) Camera.Transform.Location = Settings.ViewLocation[Index];
         if (Settings.bViewRotationSaved[Index]) Camera.Transform.Rotation = Settings.ViewRotation[Index];
         ViewportAdapter->ApplyCameraProperties(Index, Camera, false);
-        ViewportAdapter->SetViewWireframe(Index, Settings.ViewWireframe[Index] < 0 ? Settings.bWireframe : Settings.ViewWireframe[Index] == 1);
+        EViewMode Mode = EViewMode::Lit_Phong;
+        if (Settings.ViewMode[Index] >= 0)
+            Mode = static_cast<EViewMode>(Settings.ViewMode[Index]);
+        else if (Settings.bWireframe)
+            Mode = EViewMode::Wireframe;
+        ViewportAdapter->SetViewMode(Index, Mode);
     }
 }

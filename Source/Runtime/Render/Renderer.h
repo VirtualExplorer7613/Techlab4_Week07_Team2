@@ -5,6 +5,7 @@
 #include "Text/Font.h"
 
 #include "RenderingInfo.h"
+#include "Render/ViewMode.h"
 #include "Occlusion/GPUOcclusion.h"
 #include "Shared/LightDefinitions.h"
 
@@ -84,13 +85,13 @@ public:
 	bool Init();
 
 	// 기존 단일 카메라의 ViewProjection으로 렌더 큐 전체를 그린다.
-	void RenderAll(FRenderQueue& InQueue, UCameraComponent* CameraComponent);
+	void RenderAll(FRenderQueue& InQueue, UCameraComponent* CameraComponent, const EViewMode ViewMode);
 
 	// Adapter가 계산한 ViewProjection을 직접 받아 View별 렌더 큐를 그린다.
-	void RenderAll(FRenderQueue& InQueue, const FMatrix& ViewProjection);
+	void RenderAll(FRenderQueue& InQueue, const FMatrix& ViewProjection, const EViewMode ViewMode);
 
 	// 큐를 정렬해 불투명 패킷만 그린다. 반투명은 RenderTranslucent 호출 전까지 보관한다.
-	void RenderOpaque(const FMatrix& ViewProjection);
+	void RenderOpaque(const FMatrix& ViewProjection, const EViewMode ViewMode);
 
 	// Gather 전에 World가 불러 가려진 물체를 거른다.
 	FGPUOcclusion& GetGPUOcclusion() { return GPUOcclusion; }
@@ -101,7 +102,7 @@ public:
 	void AddStaticDrawGroup(const FStaticDrawGroup* Group) { StaticGroups.push_back(Group); }
 
 	// RenderOpaque가 보관한 반투명 패킷을 먼 것부터 그린다.
-	void RenderTranslucent(const FMatrix& ViewProjection);
+	void RenderTranslucent(const FMatrix& ViewProjection, const EViewMode ViewMode);
 
 	// 큐를 Material, Opaque, Mesh에 따라 정렬한다
 	void RenderQueueSorting(FRenderQueue& InQueue, const FMatrix& ViewProjection);
@@ -109,7 +110,7 @@ public:
 	// [측정 전용] RenderOpaque 직후에 호출한다. 불투명 패킷을 깊이 LESS_EQUAL·색 쓰기 없이 다시 그리며
 	// 패킷마다 오클루전 쿼리를 걸어, 최종 화면에 실제로 픽셀을 남긴 물체 수를 센다.
 	// GPU 결과를 기다리므로 매우 느리다. 버튼 등으로 한 프레임만 실행할 것.
-	FOcclusionMeasureResult MeasureOpaqueOcclusion(const FMatrix& ViewProjection);
+	FOcclusionMeasureResult MeasureOpaqueOcclusion(const FMatrix& ViewProjection, const EViewMode ViewMode);
 
 	uint8* BeginObjectConstants(uint32 MaxSlots);
 	void EndObjectConstants();
@@ -139,13 +140,13 @@ private:
 
 	FGPUOcclusion GPUOcclusion;
 
-	void DrawPackets(uint32 Begin, uint32 End, const FMatrix& ViewProjection);
-	void DrawStaticGroups();
+	void DrawPackets(uint32 Begin, uint32 End, const FMatrix& ViewProjection, const EViewMode ViewMode);
+	void DrawStaticGroups(const EViewMode ViewMode);
 	void UpdatePerObjectConstants(const FMatrix& World);
 
 	// 이번 프레임 스태틱 메시 묶음 (정렬 키 순). 비어 있지 않은 것만 담는다.
 	std::vector<const FStaticDrawGroup*> StaticGroups;
-	void BindMaterial(UMaterial* material);
+	void BindMaterial(UMaterial* material, const EViewMode ViewMode);
 	void UpdateMaterialParams(const FRenderPacket& RenderPacket);
 	void UpdatePerObjectConstants(const FRenderPacket& RenderPacket, const FMatrix& ViewProjection);
 	void EnsurePerObjectSlotCapacity(uint32 SlotCount);

@@ -89,8 +89,10 @@ private:
 class FShaderProgram
 {
 public:
-	FShaderProgram(FVertexShader* InVertexShader, FPixelShader* InPixelShader);
+	FShaderProgram(FVertexShader* InVertexShader, FPixelShader* InPixelShader, const FString &InSourcePath, const FString &InPermutation);
 
 	FVertexShader* VertexShader;
 	FPixelShader* PixelShader;
+	FString SourcePath;    // 셰이더 경로
+	FString Permutation;   // "PHONG", "LAMBERT", ... (일반 셰이더는 빈 문자열)
 };

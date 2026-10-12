@@ -243,14 +243,15 @@ void FViewportsPanel::OnRender()
 			PendingCameraPreset = static_cast<EMultipleViewportsCameraPreset>(SelectedPreset);
 		}
 		ImGui::SameLine();
-		// 레이아웃과 독립적으로 각 View의 장면 Fill Mode를 편집한다.
+		// 레이아웃과 독립적으로 각 View의 View Mode(셰이딩·Wireframe)를 편집한다.
         if (ViewportAdapter)
         {
-            int Mode = ViewportAdapter->IsViewWireframe(ViewIndex) ? 1 : 0;
-            const char* Labels[] = {"Solid", "Wireframe"};
-            ImGui::SetNextItemWidth(100.0f);
-            if (ImGui::Combo("##FillMode", &Mode, Labels, 2))
-                ViewportAdapter->SetViewWireframe(ViewIndex, Mode == 1);
+			int Mode = static_cast<int>(ViewportAdapter->GetViewMode(ViewIndex));
+            ImGui::SetNextItemWidth(110.0f);
+			if (ImGui::Combo("##ViewMode", &Mode, ViewModeLabels, IM_ARRAYSIZE(ViewModeLabels)))
+			{
+				ViewportAdapter->SetViewMode(ViewIndex, static_cast<EViewMode>(Mode));
+			}
             ImGui::SameLine();
         }
         if (CurrentLayoutMode == ELayoutMode::QuadSplit)

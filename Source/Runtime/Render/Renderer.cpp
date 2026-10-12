@@ -9,6 +9,7 @@
 #include "Engine/PrimitiveSceneProxy.h"
 
 #include "RenderCommand.h"
+#include "RenderResourceManager.h"
 
 #include "Camera/CameraComponent.h"
 
@@ -126,40 +127,40 @@ void FRenderer::UploadPerObjectConstants()
 }
 
 // 카메라의 ViewProjection을 공통 렌더 경로로 전달한다.
-void FRenderer::RenderAll(FRenderQueue& InQueue, UCameraComponent* CameraComponent)
+void FRenderer::RenderAll(FRenderQueue& InQueue, UCameraComponent* CameraComponent, const EViewMode ViewMode)
 {
-	RenderAll(InQueue, CameraComponent->GetViewProjectionMatrix());
+	RenderAll(InQueue, CameraComponent->GetViewProjectionMatrix(), ViewMode);
 }
 
 // 불투명 우선·반투명 거리순으로 정렬해 View 행렬과 Section 범위로 그린다.
-void FRenderer::RenderAll(FRenderQueue& InQueue, const FMatrix& ViewProjection)
+void FRenderer::RenderAll(FRenderQueue& InQueue, const FMatrix& ViewProjection, const EViewMode ViewMode)
 {
 	RenderQueueSorting(InQueue, ViewProjection);
-	RenderOpaque(ViewProjection);
-	RenderTranslucent(ViewProjection);
+	RenderOpaque(ViewProjection, ViewMode);
+	RenderTranslucent(ViewProjection, ViewMode);
 }
 
-void FRenderer::RenderOpaque(const FMatrix& ViewProjection)
+void FRenderer::RenderOpaque(const FMatrix& ViewProjection, const EViewMode ViewMode)
 {
 	RenderCommand::BindConstantBuffer(3, LightCB.get(), EShaderBindFlagBits::Pixel);
 
-	DrawStaticGroups();
-	DrawPackets(0, FirstTranslucentIndex, ViewProjection);
+	DrawStaticGroups(ViewMode);
+	DrawPackets(0, FirstTranslucentIndex, ViewProjection, ViewMode);
 }
 
 // RenderOpaque가 남긴 반투명 패킷을 먼 것부터 그린다.
-void FRenderer::RenderTranslucent(const FMatrix& ViewProjection)
+void FRenderer::RenderTranslucent(const FMatrix& ViewProjection, const EViewMode ViewMode)
 {
 	RenderCommand::BindConstantBuffer(3, LightCB.get(), EShaderBindFlagBits::Pixel);
 
-	DrawPackets(FirstTranslucentIndex, SortEntries.Num(), ViewProjection);
+	DrawPackets(FirstTranslucentIndex, SortEntries.Num(), ViewProjection, ViewMode);
 	RenderPackets.Reset();
 	FirstTranslucentIndex = 0;
 	StaticGroups.clear();   // 묶음 메모리는 World 것이므로 이번 프레임이 끝나면 놓는다
 }
 
 // 스태틱 메시 묶음을 정렬 키 순서로 그린다. 바인딩은 묶음마다 한 번, 항목마다는 칸 바인딩과 드로우만 한다.
-void FRenderer::DrawStaticGroups()
+void FRenderer::DrawStaticGroups(const EViewMode ViewMode)
 {
 	if (StaticGroups.empty())
 		return;
@@ -174,7 +175,7 @@ void FRenderer::DrawStaticGroups()
 		if (Group->Material != BoundMaterial)
 		{
 			BoundMaterial = Group->Material;
-			BindMaterial(BoundMaterial);
+			BindMaterial(BoundMaterial, ViewMode);
 			FRenderPacket MaterialOnly;           // 머티리얼 파라미터 갱신은 패킷을 받으므로 머티리얼만 채워 넘긴다
 			MaterialOnly.Material = BoundMaterial;
 			UpdateMaterialParams(MaterialOnly);
@@ -240,7 +241,7 @@ void FRenderer::RenderQueueSorting(FRenderQueue& InQueue, const FMatrix& ViewPro
 }
 
 // 정렬된 패킷 중 [Begin, End) 범위를 View 행렬과 Section 범위로 그린다.
-void FRenderer::DrawPackets(uint32 Begin, uint32 End, const FMatrix& ViewProjection)
+void FRenderer::DrawPackets(uint32 Begin, uint32 End, const FMatrix& ViewProjection, const EViewMode ViewMode)
 {
 	SCOPE_CYCLE_COUNTER(STAT_DrawRenderPackets);
 
@@ -260,7 +261,7 @@ void FRenderer::DrawPackets(uint32 Begin, uint32 End, const FMatrix& ViewProject
 			RenderCommand::BindMesh(RenderPacket.Mesh, RenderPacket.LODIndex);
 		}
 		if (RenderPacket.Material != LastMaterial) {
-			BindMaterial(RenderPacket.Material);
+			BindMaterial(RenderPacket.Material, ViewMode);
 		}
 		if (RenderPacket.Material != LastMaterial || RenderPacket.MaterialParamData)
 			UpdateMaterialParams(RenderPacket);
@@ -284,7 +285,7 @@ void FRenderer::DrawPackets(uint32 Begin, uint32 End, const FMatrix& ViewProject
 	}
 }
 
-FOcclusionMeasureResult FRenderer::MeasureOpaqueOcclusion(const FMatrix& ViewProjection)
+FOcclusionMeasureResult FRenderer::MeasureOpaqueOcclusion(const FMatrix& ViewProjection, const EViewMode ViewMode)
 {
 	FOcclusionMeasureResult Result;
 
@@ -364,7 +365,7 @@ FOcclusionMeasureResult FRenderer::MeasureOpaqueOcclusion(const FMatrix& ViewPro
 			RenderCommand::BindMesh(Draw.Mesh, Draw.LODIndex);
 		if (Draw.Material != BoundMaterial)
 		{
-			BindMaterial(Draw.Material);
+			BindMaterial(Draw.Material, ViewMode);
 			// BindMaterial이 바꾼 상태를 측정용으로 덮어쓴다.
 			RenderCommand::SetBlendState(EBlendState::NoColorWrite);
 			Context->OMSetDepthStencilState(DepthLessEqualReadOnly.Get(), 0);
@@ -456,9 +457,19 @@ void FRenderer::EndObjectConstants()
 }
 
 // Material마다 Shader/Texture/Sampler/State 꽂기
-void FRenderer::BindMaterial(UMaterial* material)
+void FRenderer::BindMaterial(UMaterial* material, const EViewMode ViewMode)
 {
-	RenderCommand::BindShaderProgram(material->Shader);
+	FShaderProgram* Shader = material->Shader;
+	const char* Permutation = ViewModeToPermutation[(int)ViewMode];
+
+	//이전 View와 Permutation이 다르다면, 셰이더를 교체해준다.
+	if (Shader && !Shader->Permutation.empty() && Shader->Permutation.compare(Permutation))
+	{
+		if (FShaderProgram* Variant = FRenderResourceManager::GetShaderProgram(Shader->SourcePath, ViewModeToPermutation[(int)ViewMode]))
+			Shader = Variant;
+	}
+
+	RenderCommand::BindShaderProgram(Shader);
 	RenderCommand::SetBlendState(material->BlendState);
 	// 반투명은 뒤에 그려지는 Grid·다른 반투명을 가리지 않도록 깊이를 쓰지 않는다.
 	const bool bTranslucent = material->BlendState != EBlendState::Opaque;

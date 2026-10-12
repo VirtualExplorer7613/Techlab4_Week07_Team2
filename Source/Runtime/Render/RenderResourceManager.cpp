@@ -99,7 +99,7 @@ void FRenderResourceManager::LoadOrCompileShader(const FString& Path, const D3D_
 
 	VertexShaderMap[VSCSOPath] = std::move(Vs);
 	PixelShaderMap[PSCSOPath] = std::move(Ps);
-	ShaderProgramMap[Key] = MakeUnique<FShaderProgram>(VsRaw, PsRaw);
+	ShaderProgramMap[Key] = MakeUnique<FShaderProgram>(VsRaw, PsRaw, Path, AdditionalName);
 
 	HTR_LOG(Info, "[Shader] loaded: {}", Key);
 
