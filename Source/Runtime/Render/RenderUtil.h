@@ -15,6 +15,7 @@ class RenderUtil
 {
 public:
 	static FShaderByteCode CompileShader(FString Path, const char* EntryPoint, EShaderType ShaderType);
+	static FShaderByteCode CompileDefineShader(FString Path, const char* EntryPoint, EShaderType ShaderType, D3D_SHADER_MACRO defines[]);
 	static void SaveByteCode(FString TargetPath, const FShaderByteCode& ByteCode);
 	static FShaderByteCode LoadByteCode(const FString& CsoPath);
 

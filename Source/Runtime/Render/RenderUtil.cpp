@@ -29,6 +29,36 @@ FShaderByteCode RenderUtil::CompileShader(FString Path, const char* EntryPoint, 
 	return ByteCode;
 }
 
+// shader preprocessor 사용시
+FShaderByteCode RenderUtil::CompileDefineShader(FString Path, const char* EntryPoint, EShaderType ShaderType, D3D_SHADER_MACRO defines[])
+{
+	const char* Target = (ShaderType == EShaderType::Vertex) ? "vs_5_0" : "ps_5_0";
+
+	uint32 Flags = D3DCOMPILE_ENABLE_STRICTNESS;
+#ifdef _DEBUG
+	Flags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+#endif
+
+	FShaderByteCode ByteCode;
+
+	std::wstring WPath(Path.begin(), Path.end());
+
+	ComPtr<ID3DBlob> ErrorBlob;
+	HRESULT hr = D3DCompileFromFile(WPath.c_str(), defines, nullptr, EntryPoint, Target, 0, 0, ByteCode.Blob.GetAddressOf(), ErrorBlob.GetAddressOf());
+
+	if (FAILED(hr))
+	{
+		if (ErrorBlob)
+			OutputDebugStringA((const char*)ErrorBlob->GetBufferPointer());
+		else
+			OutputDebugStringA(("[Shader] file not found: " + Path + "\n").c_str());
+
+		ByteCode.Blob.Reset();
+	}
+	return ByteCode;
+}
+
+
 void RenderUtil::SaveByteCode(FString CsoPath, const FShaderByteCode& ByteCode)
 {
 	fs::create_directories(fs::path(CsoPath).parent_path());

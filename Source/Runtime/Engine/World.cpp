@@ -95,6 +95,8 @@ AActor* UWorld::SpawnActor(UClass* Class, FName InName, const FTransform* Transf
 			Scene.AddFogInfo(Fog->GetUUID(), Fog->GetFogInfo());
 		else if (UFireBallComponent* FireBall = Cast<UFireBallComponent>(Component))
 			Scene.RegisterFireBall(FireBall);
+		else if (USpotLightComponent* Spot = Cast<USpotLightComponent>(Component))
+			Scene.RegisterSpotLight(Spot);
 	}
 
 	// 4. Level->Actors에 등록
@@ -153,6 +155,7 @@ void UWorld::ClearWorld()
 	// 그대로 두면 지워진 컴포넌트를 가리키는 프록시가 FScene에 남아 다음 프레임에 터진다.
 	Scene.RemoveAllPrimitives();
 	Scene.RemoveAllFogInfo();
+	Scene.RemoveAllSpotLights();
 	for (ULevel* Level : Levels)
 	{
 		for (AActor* Actor : Level->Actors)
@@ -749,6 +752,8 @@ void UWorld::PostDuplicate(bool bDuplicateForPIE)
 				Scene.AddFogInfo(Fog->GetUUID(), Fog->GetFogInfo());
 			else if (UFireBallComponent* FireBall = Cast<UFireBallComponent>(Component))
 				Scene.RegisterFireBall(FireBall);
+			else if (USpotLightComponent* Spot = Cast<USpotLightComponent>(Component))
+				Scene.RegisterSpotLight(Spot);
 		}
 
 		BeginPlayList.Enqueue(Actor);   // Tick 등록은 BeginPlay에서 함

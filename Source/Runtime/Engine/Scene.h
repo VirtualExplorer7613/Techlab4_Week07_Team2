@@ -4,6 +4,7 @@
 #include "Component/BillboardComponent.h"
 #include "Component/PrimitiveComponent.h"
 #include "Component/FireBallComponent.h"
+#include "Component/SpotLightComponent.h"
 #include "Math/Frustum.h"
 #include "Math/BVH.h"
 #include "Render/FogInfo.h"
@@ -39,6 +40,11 @@ public:
 	void RegisterFireBall(UFireBallComponent* FireBall);
 	void UnregisterFireBall(UFireBallComponent* FireBall);
 
+	void RegisterSpotLight(USpotLightComponent* Spot);
+	void UnregisterSpotLight(USpotLightComponent* Spot);
+	void UpdateSpotLight(FRenderer* Renderer);
+	void RemoveAllSpotLights(){SpotLightComponents.Reset();}
+
 	TArray<FPrimitiveSceneProxy*> Proxies;
 	TArray<FPrimitiveSceneProxy*> DirtyProxies;
 	TArray<FPrimitiveSceneProxy*> RenderStateDirtyProxies;
@@ -58,4 +64,5 @@ public:
 	bool bElementListChanged = false;
 	
 	TArray<UFireBallComponent*> FireBallComponents;
+	TArray<USpotLightComponent*> SpotLightComponents;
 };

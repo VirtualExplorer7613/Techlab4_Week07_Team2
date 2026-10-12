@@ -18,7 +18,7 @@
 
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
-#include "GameFramework/Actor/LightActor.h"
+#include "GameFramework/Actor/SpotLightActor.h"
 
 #include "Asset/AssetManager.h"
 #include "Render/RenderResourceManager.h"
@@ -415,6 +415,7 @@ void UEditorEngine::RenderMultipleViewports()
 			MultipleViewportsAdapter.CaptureWorld(*ViewWorld);
 			// FireBall 라이트 상수는 Renderer 공용 상태라 월드가 바뀌면 다시 올린다.
 			ViewWorld->GetScene().UpdateFireBallLight(Renderer);
+			ViewWorld->GetScene().UpdateSpotLight(Renderer);
 			CapturedWorld = ViewWorld;
 		}
 
@@ -445,6 +446,7 @@ void UEditorEngine::RenderMultipleViewports()
 			SCOPE_CYCLE_COUNTER(STAT_CaptureWorld);
 			MultipleViewportsAdapter.CaptureWorld(*ViewWorld);
 			ViewWorld->GetScene().UpdateFireBallLight(Renderer);
+			ViewWorld->GetScene().UpdateSpotLight(Renderer);
 			CapturedWorld = ViewWorld;
 		}
 
@@ -642,7 +644,7 @@ void UEditorEngine::RenderOverlayPass(const int32 ViewIndex, UWorld& ViewWorld, 
 		// 선택된 액터가 라이트면 원뿔을 같이 쌓는다
 		if (Gizmo->GetTarget())
 		{
-			if (ALightActor* LightActor = Cast<ALightActor>(Gizmo->GetTarget()->GetOwner()))
+			if (ASpotLightActor* LightActor = Cast<ASpotLightActor>(Gizmo->GetTarget()->GetOwner()))
 			{
 				LightActor->GetSpotLightComponent()->DrawDebug(LineBatcher.get());
 			}

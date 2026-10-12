@@ -285,3 +285,107 @@ void FScene::UnregisterFireBall(UFireBallComponent* FireBall)
 		}
 	}
 }
+
+void FScene::RegisterSpotLight(USpotLightComponent* Spot)
+{
+	if (!Spot)
+		return;
+
+	for (USpotLightComponent* Existing : SpotLightComponents)
+	{
+		if (Existing == Spot)
+			return;
+	}
+
+	SpotLightComponents.Add(Spot);
+}
+
+void FScene::UnregisterSpotLight(USpotLightComponent* Spot)
+{
+	for (uint32 i = 0; i < SpotLightComponents.Num(); ++i)
+	{
+		if (SpotLightComponents[i] == Spot)
+		{
+			SpotLightComponents.RemoveAt(i, 1);
+			return;
+		}
+	}
+}
+
+void FScene::UpdateSpotLight(FRenderer* Renderer)
+{
+	if (!Renderer)
+		return;
+
+	FSpotLightConstants Constants{};
+
+	for (USpotLightComponent* Spot : SpotLightComponents)
+	{
+		if (Constants.LightCount >= MaxSpotLights)
+			break;
+
+		if (!Spot || !Spot->IsVisible() || !Spot->IsActive())
+			continue;
+
+		const float Radius = Spot->GetAttenuationRadius();
+		const float Intensity = Spot->GetIntensity();
+
+		if (Radius <= 0.0f || Intensity <= 0.0f)
+			continue;
+
+		const FVector Position = Spot->GetWorldLocation();
+		const FVector4& Color = Spot->GetLightColor();
+
+		FTransform Transform;
+		Transform.Rotation = Spot->GetWorldRotation();
+
+		const FVector Direction =
+			Transform.GetForward().GetSafeNormal();
+
+		const float OuterAngle =
+			FMath::Clamp(Spot->GetOuterConeAngle(), 0.0f, 89.0f);
+
+		const float InnerAngle =
+			FMath::Clamp(Spot->GetInnerConeAngle(), 0.0f, OuterAngle);
+
+		const float CosOuter =
+			std::cos(FMath::DegreesToRadians(OuterAngle));
+
+		const float CosInner =
+			std::cos(FMath::DegreesToRadians(InnerAngle));
+
+		const float Falloff = Spot->GetFalloff() > 0.001f ? Spot->GetFalloff() : 0.001f;
+
+		FSpotLight& Data = Constants.Lights[Constants.LightCount++];
+
+		Data.PositionRadius = FVector4(
+			Position.X, 
+			Position.Y, 
+			Position.Z, 
+			Radius
+		);
+
+		Data.ColorIntensity = FVector4(
+			Color.X,
+			Color.Y,
+			Color.Z,
+			Intensity
+		);
+
+		Data.DirectionCosOuter = FVector4(
+			Direction.X,
+			Direction.Y,
+			Direction.Z,
+			CosOuter
+		);
+
+		Data.ConeParams = FVector4(
+			CosInner,
+			Falloff,
+			0.0f,
+			0.0f
+		);
+	}
+
+	Renderer->SetSpotLight(Constants);
+}

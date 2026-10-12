@@ -1,25 +1,29 @@
 #pragma once
 
-#include "SceneComponent.h"
+#include "LightComponent.h"
 
 class FLineBatcher;
 
-class USpotLightComponent : public USceneComponent
+class USpotLightComponent : public ULightComponent
 {
-	DECLARE_CLASS(USpotLightComponent, USceneComponent)
+	DECLARE_CLASS(USpotLightComponent, ULightComponent)
 
-	REFLECT_START(ClassName)
+	REFLECT_START(USpotLightComponent)
 		PROPERTY(InnerConeAngle)
 		PROPERTY(OuterConeAngle)
 		PROPERTY(AttenuationRadius)
 		PROPERTY(Falloff)
-		PROPERTY(Intensity)
-		PROPERTY_TYPE(LightColor, Color)
+		//PROPERTY(Intensity)
+		//PROPERTY_TYPE(LightColor, Color)
 	REFLECT_END()
 
 public:
-	USpotLightComponent() = default;
-	virtual ~USpotLightComponent() override = default;
+	USpotLightComponent()
+	{
+		SetLightColor(FVector4(1.0f, 1.0f, 0.6f, 1.0f));
+	}
+	virtual ~USpotLightComponent() override;
+	void InitializeComponent() override;
 
 	void DrawDebug(FLineBatcher* LineBatcher) const;
 
@@ -35,8 +39,8 @@ public:
 	float GetAttenuationRadius() const { return AttenuationRadius; }
 	void SetAttenuationRadius(float InRadius) { AttenuationRadius = InRadius; }
 
-	const FVector4& GetLightColor() const { return LightColor; }
-	void SetLightColor(const FVector4& InColor) { LightColor = InColor; }
+	/*const FVector4& GetLightColor() const { return LightColor; }
+	void SetLightColor(const FVector4& InColor) { LightColor = InColor; }*/
 
 private:
 	// 원뿔 중심축 기준 반각(도). 
@@ -49,7 +53,7 @@ private:
 	// Inner에서 Outer로 가며 밝기가 떨어지는 정도.
 	float Falloff = 1.0f;
 
-	float Intensity = 1.0f;
+	//float Intensity = 1.0f;
 
-	FVector4 LightColor = FVector4(1.0f, 1.0f, 0.6f, 1.0f);
+	//FVector4 LightColor = FVector4(1.0f, 1.0f, 0.6f, 1.0f);
 };

@@ -31,6 +31,21 @@ cbuffer FireBallLightConstants : register(b3)
     float3 FireBallLightPadding;
 };
 
+struct SpotLight
+{
+    float4 PositionRadius;
+    float4 ColorIntensity;
+    float4 DirectionCosOuter;
+    float4 ConeParams;
+};
+
+cbuffer SpotLightConstants : register(b4)
+{
+    SpotLight SpotLights[16];
+    uint SpotLightCount;
+    float3 SpotLightPadding;
+};
+
 struct VS_INPUT
 {
     float3 p : POSITION; // Input position from vertex buffer
@@ -70,6 +85,56 @@ PS_INPUT mainVS(VS_INPUT input)
     return output;
 }
 
+// 임시
+float3 CalculateSpotLight(
+    SpotLight light,
+    float3 worldPos,
+    float3 normal)
+{
+    float3 toLight = light.PositionRadius.xyz - worldPos;
+    float distanceToLight = length(toLight);
+    float radius = light.PositionRadius.w;
+
+    if (distanceToLight <= 0.00001f || distanceToLight >= radius)
+        return float3(0, 0, 0);
+
+    // 표면 → 광원 방향
+    float3 L = toLight / distanceToLight;
+
+    // 광원의 진행 방향과 광원 → 표면 방향을 비교
+    float3 forward = normalize(light.DirectionCosOuter.xyz);
+    float cosTheta = dot(forward, -L);
+
+    float cosOuter = light.DirectionCosOuter.w;
+    float cosInner = light.ConeParams.x;
+    float coneWidth = cosInner - cosOuter;
+
+    float coneFactor;
+
+    if (coneWidth > 0.000001f)
+    {
+        coneFactor = saturate((cosTheta - cosOuter) / coneWidth);
+    }
+    else
+    {
+        coneFactor = cosTheta >= cosOuter ? 1.0f : 0.0f;
+    }
+
+    coneFactor = pow(coneFactor, light.ConeParams.y);
+
+    float distanceFactor = saturate(1.0f - distanceToLight / radius);
+
+    distanceFactor *= distanceFactor;
+
+    float diffuse = saturate(dot(normal, L));
+
+    return light.ColorIntensity.rgb
+        * light.ColorIntensity.w
+        * diffuse
+        * distanceFactor
+        * coneFactor;
+}
+
 float4 mainPS(PS_INPUT input) : SV_TARGET
 {
     // Mesh 표면색
@@ -103,12 +168,21 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
         float3 pointLight = ColorIntensity.rgb * pointNdotL * falloff * enabled * intensity;
         totalPointLight += pointLight;
     }
+    
+    // 임시
+    float3 totalSpotLight = float3(0, 0, 0);
+
+    for (uint i = 0; i < SpotLightCount; ++i)
+    {
+        totalSpotLight += CalculateSpotLight(SpotLights[i], input.worldPos, N);
+    }
+    
 
     float3 lighting = AmbientColor + LightColor * directionNdotL;
     
     // Opaque는 알파를 1로 고정한다. 뷰포트 RT를 ImGui가 알파 블렌딩으로 그리므로 알파가 남으면 비쳐 보인다
     float alpha = bOpaque > 0.5f ? 1.0f : albedo.a;
     
-    float3 finalRGB = albedo.rgb * (lighting + totalPointLight);
+    float3 finalRGB = albedo.rgb * (lighting + totalPointLight + totalSpotLight);
     return float4(finalRGB, alpha);
 }
