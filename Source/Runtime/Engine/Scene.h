@@ -58,6 +58,7 @@ public:
 
 	void RegisterPointLight(UPointLightComponent* Light);
 	void UnregisterPointLight(UPointLightComponent* Light);
+	void UpdatePointLight(FRenderer* Renderer);
 	void RemoveAllPointLights(){PointLightComponents.Reset();}
 
 	TArray<FPrimitiveSceneProxy*> Proxies;

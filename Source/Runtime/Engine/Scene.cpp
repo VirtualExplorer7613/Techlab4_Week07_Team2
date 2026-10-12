@@ -467,3 +467,40 @@ void FScene::UnregisterPointLight(UPointLightComponent* Light)
 		}
 	}
 }
+
+void FScene::UpdatePointLight(FRenderer* Renderer)
+{
+	if (!Renderer)
+		return;
+
+	FPointLightConstants Constants{};
+
+	for (UPointLightComponent* Light : PointLightComponents)
+	{
+		if (Constants.LightCount >= MaxPointLights)
+			break;
+
+		if (!Light || !Light->IsVisible() || !Light->IsActive())
+			continue;
+
+		const float Radius = Light->GetAttenuationRadius();
+		const float Intensity = Light->GetIntensity();
+
+		if (Radius <= 0.0f || Intensity <= 0.0f)
+			continue;
+
+		const FVector Position = Light->GetWorldLocation();
+		const FVector4& Color = Light->GetLightColor();
+
+		FPointLight& Data =	Constants.Lights[Constants.LightCount++];
+
+		Data.PositionRadius = FVector4(	Position.X, Position.Y, Position.Z, Radius);
+
+		Data.ColorIntensity = FVector4(Color.X, Color.Y, Color.Z, Intensity);
+
+		Data.FalloffEnabled = FVector4(	Light->GetRadiusFalloff(), 1.0f, 0.0f, 0.0f);
+	}
+
+	// 광원이 0개일 때도 업로드해 이전 프레임 정보를 지운다.
+	Renderer->SetPointLight(Constants);
+}

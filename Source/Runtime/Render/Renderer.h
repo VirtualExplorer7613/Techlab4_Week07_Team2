@@ -54,6 +54,22 @@ struct alignas(16) FFireBallLightConstants
 	uint32 Padding[3] = {};
 };
 
+constexpr uint32 MaxPointLights = 16;
+
+struct alignas(16) FPointLight
+{
+	FVector4 PositionRadius;
+	FVector4 ColorIntensity;
+	FVector4 FalloffEnabled;
+};
+
+struct alignas(16) FPointLightConstants
+{
+	FPointLight Lights[MaxPointLights];
+	uint32 LightCount = 0;
+	uint32 Padding[3] = {};
+};
+
 //
 constexpr uint32 MaxSpotLights = 16;
 
@@ -70,6 +86,11 @@ struct alignas(16) FSpotLightConstants
 	FSpotLight Lights[MaxSpotLights];
 	uint32 LightCount = 0;
 	uint32 Padding[3] = {};
+};
+
+struct alignas(16) FCameraConstants
+{
+	FVector4 CameraWorldPos;
 };
 
 class FRenderer
@@ -110,6 +131,8 @@ public:
 
 	void SetFireBallLight(const FFireBallLightConstants& LightConstants);
 	void SetSpotLight(const FSpotLightConstants& Constants);
+	void SetPointLight(const FPointLightConstants& Constants);
+	void SetCameraWorldPos(const FVector& Position);
 
 	void SetViewMode(EViewMode Mode)
 	{
@@ -161,6 +184,8 @@ private:
 	TUniquePtr<FConstantBuffer> FireBallLightCB;
 	FFireBallLightConstants FireBallLightData{};
 	TUniquePtr<FConstantBuffer> SpotLightCB;
+	TUniquePtr<FConstantBuffer> PointLightCB;
+	TUniquePtr<FConstantBuffer> CameraCB;
 
 	EViewMode CurrentViewMode = EViewMode::Lit_Lambert;
 };

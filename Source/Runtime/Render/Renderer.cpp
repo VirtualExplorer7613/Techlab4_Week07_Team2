@@ -65,9 +65,9 @@ bool FRenderer::Init()
 	PerObjectCB = RenderCommand::CreateConstantBuffer(sizeof(FPerObjectConstants));
 	ViewCB = RenderCommand::CreateConstantBuffer(sizeof(FMatrix));
 	FireBallLightCB = RenderCommand::CreateConstantBuffer(sizeof(FFireBallLightConstants));
-	// 임시
 	SpotLightCB = RenderCommand::CreateConstantBuffer(sizeof(FSpotLightConstants));
-
+	PointLightCB = RenderCommand::CreateConstantBuffer(sizeof(FPointLightConstants));
+	CameraCB = RenderCommand::CreateConstantBuffer(sizeof(FCameraConstants));
 
 	GPUOcclusion.Init();   // 실패해도 오클루전만 못 쓸 뿐 렌더링은 된다
 
@@ -146,9 +146,13 @@ void FRenderer::RenderAll(FRenderQueue& InQueue, const FMatrix& ViewProjection)
 
 void FRenderer::RenderOpaque(const FMatrix& ViewProjection)
 {
-	RenderCommand::BindConstantBuffer(3, FireBallLightCB.get(), EShaderBindFlagBits::Pixel);
-	//
-	RenderCommand::BindConstantBuffer(4, SpotLightCB.get(), EShaderBindFlagBits::Pixel);
+	const EShaderBindFlagBits LightStages =	EShaderBindFlagBits::Vertex | EShaderBindFlagBits::Pixel;
+
+	RenderCommand::BindConstantBuffer(3, FireBallLightCB.get(), LightStages);
+
+	RenderCommand::BindConstantBuffer(4, SpotLightCB.get(), LightStages);
+
+	RenderCommand::BindConstantBuffer(5, PointLightCB.get(), LightStages);
 
 	DrawStaticGroups();
 	DrawPackets(0, FirstTranslucentIndex, ViewProjection);
@@ -160,6 +164,7 @@ void FRenderer::RenderTranslucent(const FMatrix& ViewProjection)
 	RenderCommand::BindConstantBuffer(3, FireBallLightCB.get(), EShaderBindFlagBits::Pixel);
 
 	RenderCommand::BindConstantBuffer(4, SpotLightCB.get(),	EShaderBindFlagBits::Pixel);
+	RenderCommand::BindConstantBuffer(5, PointLightCB.get(), EShaderBindFlagBits::Pixel);
 
 	DrawPackets(FirstTranslucentIndex, SortEntries.Num(), ViewProjection);
 	RenderPackets.Reset();
@@ -553,4 +558,21 @@ void FRenderer::SetFireBallLight(const FFireBallLightConstants& LightData)
 void FRenderer::SetSpotLight(const FSpotLightConstants& Constants)
 {
 	RenderCommand::UpdateBufferData(SpotLightCB.get(), &Constants, sizeof(FSpotLightConstants));
+}
+
+void FRenderer::SetPointLight(const FPointLightConstants& Constants)
+{
+	RenderCommand::UpdateBufferData(PointLightCB.get(), &Constants, sizeof(FPointLightConstants));
+}
+
+void FRenderer::SetCameraWorldPos(const FVector& Position)
+{
+	FCameraConstants Constants{};
+
+	Constants.CameraWorldPos = FVector4(Position.X, Position.Y, Position.Z, 0.0f);
+
+	RenderCommand::UpdateBufferData(CameraCB.get(), &Constants, sizeof(FCameraConstants));
+
+	// Gouraud에서도 specular를 계산할 수 있도록 VS와 PS 양쪽에 연결
+	RenderCommand::BindConstantBuffer(6,CameraCB.get(),	EShaderBindFlagBits::Vertex | EShaderBindFlagBits::Pixel);
 }

@@ -418,6 +418,8 @@ void UEditorEngine::RenderMultipleViewports()
 			// FireBall 라이트 상수는 Renderer 공용 상태라 월드가 바뀌면 다시 올린다.
 			ViewWorld->GetScene().UpdateFireBallLight(Renderer);
 			ViewWorld->GetScene().UpdateSpotLight(Renderer);
+			ViewWorld->GetScene().UpdatePointLight(Renderer);
+
 			CapturedWorld = ViewWorld;
 		}
 
@@ -449,6 +451,7 @@ void UEditorEngine::RenderMultipleViewports()
 			MultipleViewportsAdapter.CaptureWorld(*ViewWorld);
 			ViewWorld->GetScene().UpdateFireBallLight(Renderer);
 			ViewWorld->GetScene().UpdateSpotLight(Renderer);
+			ViewWorld->GetScene().UpdatePointLight(Renderer);
 			CapturedWorld = ViewWorld;
 		}
 
@@ -872,6 +875,7 @@ void UEditorEngine::UpdateGizmoAndPicking()
 // View 행렬로 Scene·Grid·Gizmo·텍스트·Outline을 렌더한다.
 void UEditorEngine::RenderFrame(const int32 ViewIndex, UWorld& ViewWorld, const FRenderingInfo& ViewRenderingInfo, const FMatrix& ViewProjection, const FVector& ViewCameraLocation, const FVector& ViewCameraForward, FRenderQueue& RenderQueue)
 {
+	Renderer->SetCameraWorldPos(ViewCameraLocation);
 	// 1. 불투명 Pass
 	RenderOpaquePass(ViewIndex, ViewRenderingInfo, ViewProjection, ViewCameraLocation, ViewCameraForward, RenderQueue);
 
