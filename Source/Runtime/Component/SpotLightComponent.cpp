@@ -2,6 +2,7 @@
 #include "Component/SpotLightComponent.h"
 
 #include "Render/LineBatcher.h"
+#include "Engine/World.h"
 
 namespace
 {
@@ -69,6 +70,19 @@ namespace
 			LineBatcher->AddLine(Apex, Point, Color);
 		}
 	}
+}
+
+void USpotLightComponent::InitializeComponent()
+{
+	if (AActor* Owner = GetOwner())
+	{
+		if (UWorld* World = Owner->GetWorld())
+		{
+			World->GetScene().AddLight(this);
+		}
+	}
+
+	Super::InitializeComponent();
 }
 
 void USpotLightComponent::DrawDebug(FLineBatcher* LineBatcher) const

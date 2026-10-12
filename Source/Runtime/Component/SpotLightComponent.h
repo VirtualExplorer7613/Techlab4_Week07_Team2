@@ -21,7 +21,9 @@ public:
 	USpotLightComponent() = default;
 	virtual ~USpotLightComponent() override = default;
 
-	void DrawDebug(FLineBatcher* LineBatcher) const;
+	virtual void InitializeComponent() override;
+
+	virtual void DrawDebug(FLineBatcher* LineBatcher) const override;
 
 	float GetInnerConeAngle() const { return InnerConeAngle; }
 	void SetInnerConeAngle(float InAngle) { InnerConeAngle = InAngle; }
