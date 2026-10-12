@@ -87,6 +87,10 @@ void ULevel::Serialize(FStructuredArchive::FRecord Record)
 		FString ClassName;
 		ActorRecord << SA_VALUE("Class", ClassName);
 
+		// 기존 씬 호환을 위해 임시
+		if (ClassName == "ALightActor")
+			ClassName = "ASpotLightActor";
+
 		UClass* Class = FindClass(ClassName);
 		if (!Class || !Class->IsChildOf(AActor::StaticClass()))
 		{

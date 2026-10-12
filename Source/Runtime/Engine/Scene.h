@@ -5,6 +5,7 @@
 #include "Component/PrimitiveComponent.h"
 #include "Component/FireBallComponent.h"
 #include "Component/SpotLightComponent.h"
+#include "Component/AmbientLightComponent.h"
 #include "Math/Frustum.h"
 #include "Math/BVH.h"
 #include "Render/FogInfo.h"
@@ -45,6 +46,10 @@ public:
 	void UpdateSpotLight(FRenderer* Renderer);
 	void RemoveAllSpotLights(){SpotLightComponents.Reset();}
 
+	void RegisterAmbientLight(UAmbientLightComponent* Light);
+	void UnregisterAmbientLight(UAmbientLightComponent* Light);
+	void RemoveAllAmbientLights(){AmbientLightComponents.Reset();}
+
 	TArray<FPrimitiveSceneProxy*> Proxies;
 	TArray<FPrimitiveSceneProxy*> DirtyProxies;
 	TArray<FPrimitiveSceneProxy*> RenderStateDirtyProxies;
@@ -65,4 +70,5 @@ public:
 	
 	TArray<UFireBallComponent*> FireBallComponents;
 	TArray<USpotLightComponent*> SpotLightComponents;
+	TArray<UAmbientLightComponent*> AmbientLightComponents;
 };

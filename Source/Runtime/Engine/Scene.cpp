@@ -389,3 +389,29 @@ void FScene::UpdateSpotLight(FRenderer* Renderer)
 
 	Renderer->SetSpotLight(Constants);
 }
+
+void FScene::RegisterAmbientLight(UAmbientLightComponent* Light)
+{
+	if (!Light)
+		return;
+
+	for (UAmbientLightComponent* Existing : AmbientLightComponents)
+	{
+		if (Existing == Light)
+			return;
+	}
+
+	AmbientLightComponents.Add(Light);
+}
+
+void FScene::UnregisterAmbientLight(UAmbientLightComponent* Light)
+{
+	for (int32 i = 0; i < AmbientLightComponents.Num(); ++i)
+	{
+		if (AmbientLightComponents[i] == Light)
+		{
+			AmbientLightComponents.RemoveAt(i, 1);
+			return;
+		}
+	}
+}

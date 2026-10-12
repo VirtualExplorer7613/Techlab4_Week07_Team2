@@ -97,6 +97,8 @@ AActor* UWorld::SpawnActor(UClass* Class, FName InName, const FTransform* Transf
 			Scene.RegisterFireBall(FireBall);
 		else if (USpotLightComponent* Spot = Cast<USpotLightComponent>(Component))
 			Scene.RegisterSpotLight(Spot);
+		else if (UAmbientLightComponent* Ambient = Cast<UAmbientLightComponent>(Component))
+			Scene.RegisterAmbientLight(Ambient);
 	}
 
 	// 4. Level->Actors에 등록
@@ -156,6 +158,7 @@ void UWorld::ClearWorld()
 	Scene.RemoveAllPrimitives();
 	Scene.RemoveAllFogInfo();
 	Scene.RemoveAllSpotLights();
+	Scene.RemoveAllAmbientLights();
 	for (ULevel* Level : Levels)
 	{
 		for (AActor* Actor : Level->Actors)
@@ -754,6 +757,8 @@ void UWorld::PostDuplicate(bool bDuplicateForPIE)
 				Scene.RegisterFireBall(FireBall);
 			else if (USpotLightComponent* Spot = Cast<USpotLightComponent>(Component))
 				Scene.RegisterSpotLight(Spot);
+			else if (UAmbientLightComponent* Ambient = Cast<UAmbientLightComponent>(Component))
+				Scene.RegisterAmbientLight(Ambient);
 		}
 
 		BeginPlayList.Enqueue(Actor);   // Tick 등록은 BeginPlay에서 함

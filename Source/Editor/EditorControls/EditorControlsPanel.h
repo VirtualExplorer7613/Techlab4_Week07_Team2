@@ -6,6 +6,7 @@
 #include "GameFramework/Actor/ParticleActor.h"
 #include "GameFramework/Actor/StaticMeshActor.h"
 #include "GameFramework/Actor/SpotLightActor.h"
+#include "GameFramework/Actor/AmbientLightActor.h"
 #include "GameFramework/Actor/TextRenderActor.h"
 #include "GameFramework/Actor/FireBallActor.h"
 #include "GameFramework/Actor/ExponentialHeightFogActor.h"
@@ -31,7 +32,7 @@ public:
 
 	int32 SelectedIndex = 0;
 
-	const char* Items[7] ={"Actor", "StaticMesh","Particle","Text","SpotLight","ExponentialHeightFog", "FireBall"};
+	const char* Items[8] ={"Actor", "StaticMesh","Particle","Text","AmbientLight","SpotLight","ExponentialHeightFog", "FireBall"};
 
 	FGizmo* Gizmo = nullptr;
 	int32 GizmoSelectedIndex = 0;
@@ -46,6 +47,7 @@ public:
 		AStaticMeshActor::StaticClass(),  
 		AParticleActor::StaticClass(),
 		ATextRenderActor::StaticClass(),
+		AAmbientLightActor::StaticClass(),
 		ASpotLightActor::StaticClass(),
 		AExponentialHeightFogActor::StaticClass(),
 		AFireBallActor::StaticClass()
