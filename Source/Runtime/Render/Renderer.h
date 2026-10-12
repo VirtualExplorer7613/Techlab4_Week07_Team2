@@ -3,7 +3,7 @@
 #include "RenderPacket.h"
 #include "Texture2D.h"
 #include "Text/Font.h"
-
+#include "LightInfo.h"
 #include "RenderingInfo.h"
 #include "Occlusion/GPUOcclusion.h"
 
@@ -99,6 +99,8 @@ public:
 
 	void SetPerViewConstants(const FVector& InLocation) { CameraPosition = InLocation; }
 
+	void SetLightConstants(const FLightConstants& InLightConstants);
+
 private:
 	// FIFO 소비용 배열의 용량만 재사용하며 매 View의 패킷 값은 새로 채운다.
 	FRenderQueue RenderPackets;
@@ -139,4 +141,7 @@ private:
 	TUniquePtr<FConstantBuffer> FireBallLightCB;
 	FFireBallLightConstants FireBallLightData{};
 	FVector CameraPosition = FVector(0.0f, 0.0f, 0.0f);
+
+	TUniquePtr<FConstantBuffer> LightCB;
+	FLightConstants LightData{};
 };

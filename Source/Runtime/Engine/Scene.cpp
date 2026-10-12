@@ -392,5 +392,5 @@ void FScene::UpdateLights(FRenderer* Renderer)
 
 	}
 
-	//Renderer->SetLightConstants(LightConstants);
+	Renderer->SetLightConstants(LightConstants);
 }

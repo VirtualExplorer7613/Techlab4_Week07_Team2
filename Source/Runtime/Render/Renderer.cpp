@@ -63,7 +63,7 @@ bool FRenderer::Init()
 	PerObjectCB = RenderCommand::CreateConstantBuffer(sizeof(FPerObjectConstants));
 	ViewCB = RenderCommand::CreateConstantBuffer(sizeof(FPerViewConstants));
 	FireBallLightCB = RenderCommand::CreateConstantBuffer(sizeof(FFireBallLightConstants));
-
+	LightCB = RenderCommand::CreateConstantBuffer(sizeof(FLightConstants));
 	GPUOcclusion.Init();   // 실패해도 오클루전만 못 쓸 뿐 렌더링은 된다
 
 	return true;
@@ -142,7 +142,7 @@ void FRenderer::RenderAll(FRenderQueue& InQueue, const FMatrix& ViewProjection)
 void FRenderer::RenderOpaque(const FMatrix& ViewProjection)
 {
 	RenderCommand::BindConstantBuffer(3, FireBallLightCB.get(), EShaderBindFlagBits::Pixel | EShaderBindFlagBits::Vertex);
-
+	RenderCommand::BindConstantBuffer(4, LightCB.get(), EShaderBindFlagBits::Vertex | EShaderBindFlagBits::Pixel);
 	DrawStaticGroups();
 	DrawPackets(0, FirstTranslucentIndex, ViewProjection);
 }
@@ -151,6 +151,7 @@ void FRenderer::RenderOpaque(const FMatrix& ViewProjection)
 void FRenderer::RenderTranslucent(const FMatrix& ViewProjection)
 {
 	RenderCommand::BindConstantBuffer(3, FireBallLightCB.get(), EShaderBindFlagBits::Pixel | EShaderBindFlagBits::Vertex);
+	RenderCommand::BindConstantBuffer(4, LightCB.get(), EShaderBindFlagBits::Vertex | EShaderBindFlagBits::Pixel);
 
 	DrawPackets(FirstTranslucentIndex, SortEntries.Num(), ViewProjection);
 	RenderPackets.Reset();
@@ -534,5 +535,11 @@ void FRenderer::SetFireBallLight(const FFireBallLightConstants& LightData)
 {
 	FireBallLightData = LightData;
 	RenderCommand::UpdateBufferData(FireBallLightCB.get(), &FireBallLightData, sizeof(FFireBallLightConstants));
+}
+
+void FRenderer::SetLightConstants(const FLightConstants& InLightConstants)
+{
+	LightData = InLightConstants;
+	RenderCommand::UpdateBufferData(LightCB.get(), &LightData, sizeof(FLightConstants));
 }
 
