@@ -12,6 +12,8 @@
 
 #include "Camera/CameraComponent.h"
 
+#include "RenderResourceManager.h"
+
 #include <algorithm>
 #include <chrono>
 #include <unordered_map>
@@ -463,7 +465,12 @@ void FRenderer::EndObjectConstants()
 // Material마다 Shader/Texture/Sampler/State 꽂기
 void FRenderer::BindMaterial(UMaterial* material)
 {
-	RenderCommand::BindShaderProgram(material->Shader);
+	// UberLit 머티리얼은 현재 뷰 모드의 변형으로 바꿔 끼운다
+	FShaderProgram* Shader = material->Shader;
+	if (Shader == UberLitBase && UberLitVariants[(int)ViewMode])
+		Shader = UberLitVariants[(int)ViewMode];
+	RenderCommand::BindShaderProgram(Shader);
+
 	RenderCommand::SetBlendState(material->BlendState);
 	// 반투명은 뒤에 그려지는 Grid·다른 반투명을 가리지 않도록 깊이를 쓰지 않는다.
 	const bool bTranslucent = material->BlendState != EBlendState::Opaque;
@@ -498,6 +505,7 @@ void FRenderer::UpdateMaterialParams(const FRenderPacket& RenderPacket)
 		break;
 	}
 	case EMaterialParamLayout::ParticleSubUV:
+	case EMaterialParamLayout::BillboardIcon:
 	{
 		if (RenderPacket.Material->ParamBuffer && RenderPacket.MaterialParamData != nullptr)
 		{
@@ -541,5 +549,19 @@ void FRenderer::SetLightConstants(const FLightConstants& InLightConstants)
 {
 	LightData = InLightConstants;
 	RenderCommand::UpdateBufferData(LightCB.get(), &LightData, sizeof(FLightConstants));
+}
+
+void FRenderer::PrepareViewModeShaders()
+{
+	const FString UberLitPath = "Resources/Shader/UberLitShader.hlsl";
+
+	UberLitBase = FRenderResourceManager::GetShaderProgram(UberLitPath);
+
+	const char* LightingModels[(int)EViewMode::Count] = { "2", "0", "3", "4", "5" };
+
+	for (int i = 0; i < (int)EViewMode::Count; ++i)
+	{
+		UberLitVariants[i] = FRenderResourceManager::GetShaderProgram(UberLitPath, { { "LIGHTING_MODEL", LightingModels[i] } });
+	}
 }
 

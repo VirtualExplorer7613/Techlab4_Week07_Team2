@@ -252,6 +252,15 @@ void FViewportsPanel::OnRender()
             if (ImGui::Combo("##FillMode", &Mode, Labels, 2))
                 ViewportAdapter->SetViewWireframe(ViewIndex, Mode == 1);
             ImGui::SameLine();
+
+            // EViewMode 순서와 같아야 한다.
+            int ViewMode = static_cast<int>(ViewportAdapter->GetViewMode(ViewIndex));
+            const char* ViewModeLabels[] = {"Lit_Gouraud", "Lit_Lambert", "Lit_Phong", "Unlit", "World Normal"};
+            static_assert(IM_ARRAYSIZE(ViewModeLabels) == static_cast<int>(EViewMode::Count));
+            ImGui::SetNextItemWidth(110.0f);
+            if (ImGui::Combo("##ViewMode", &ViewMode, ViewModeLabels, IM_ARRAYSIZE(ViewModeLabels)))
+                ViewportAdapter->SetViewMode(ViewIndex, static_cast<EViewMode>(ViewMode));
+            ImGui::SameLine();
         }
         if (CurrentLayoutMode == ELayoutMode::QuadSplit)
 		{

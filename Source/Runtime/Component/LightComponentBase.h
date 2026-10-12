@@ -2,6 +2,8 @@
 
 #include "SceneComponent.h"
 
+class FLineBatcher;
+
 class ULightComponentBase : public USceneComponent
 {
 	DECLARE_CLASS(ULightComponentBase, USceneComponent)
@@ -16,6 +18,10 @@ public:
 	virtual ~ULightComponentBase() override;
 
 	virtual void InitializeComponent() override;
+
+	// 에디터에서 선택됐을 때 라이트 범위·방향을 와이어프레임으로 그린다. 기본은 그릴 것 없음(Ambient).
+	virtual void DrawDebug(FLineBatcher* LineBatcher) const {}
+
 	void SetIntensity(float NewIntensity) { Intensity = NewIntensity; }
 	float GetIntensity() const { return Intensity; }
 	void SetLightColor(const FVector4& NewColor) { LightColor = NewColor; }

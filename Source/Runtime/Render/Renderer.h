@@ -101,6 +101,10 @@ public:
 
 	void SetLightConstants(const FLightConstants& InLightConstants);
 
+	void PrepareViewModeShaders();
+
+	void SetViewMode(EViewMode InViewMode) { ViewMode = InViewMode; }
+
 private:
 	// FIFO 소비용 배열의 용량만 재사용하며 매 View의 패킷 값은 새로 채운다.
 	FRenderQueue RenderPackets;
@@ -144,4 +148,8 @@ private:
 
 	TUniquePtr<FConstantBuffer> LightCB;
 	FLightConstants LightData{};
+
+	EViewMode ViewMode = EViewMode::Lit_Phong;
+	FShaderProgram* UberLitBase = nullptr;
+	FShaderProgram* UberLitVariants[(int)EViewMode::Count] = {};
 };

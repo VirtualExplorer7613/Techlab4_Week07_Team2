@@ -12,7 +12,8 @@ enum class EMaterialParamLayout
 {
 	None,
 	StaticMesh,
-	ParticleSubUV
+	ParticleSubUV,
+	BillboardIcon	// 패킷마다 Tint(float4)를 올린다
 };
 
 struct FStaticMeshMaterialParams

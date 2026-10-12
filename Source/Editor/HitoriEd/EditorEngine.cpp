@@ -568,6 +568,7 @@ void UEditorEngine::RenderOpaquePass(const int32 ViewIndex, const FRenderingInfo
 		RenderCommand::SetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		// 반투명은 Grid 뒤에 합성되어야 하므로 불투명만 먼저 그린다.
 		Renderer->SetPerViewConstants(ViewCameraLocation);
+		Renderer->SetViewMode(MultipleViewportsAdapter.GetViewMode(ViewIndex));
 		Renderer->RenderQueueSorting(RenderQueue, ViewProjection);
 		Renderer->RenderOpaque(ViewProjection);
 		// 장면 Wireframe이 Grid·Gizmo·UI로 전파되지 않도록 복원한다.
@@ -642,12 +643,16 @@ void UEditorEngine::RenderOverlayPass(const int32 ViewIndex, UWorld& ViewWorld, 
 			ViewWorld.GetPathTracker().OnRender(LineBatcher.get());
 		}
 
-		// 선택된 액터가 라이트면 원뿔을 같이 쌓는다
+		// 선택된 액터에 붙은 라이트마다 범위·방향 와이어프레임을 같이 쌓는다
 		if (Gizmo->GetTarget())
 		{
-			if (ALightActor* LightActor = Cast<ALightActor>(Gizmo->GetTarget()->GetOwner()))
+			if (AActor* SelectedActor = Gizmo->GetTarget()->GetOwner())
 			{
-				LightActor->GetSpotLightComponent()->DrawDebug(LineBatcher.get());
+				for (UActorComponent* Component : SelectedActor->GetComponents())
+				{
+					if (const ULightComponentBase* Light = Cast<ULightComponentBase>(Component))
+						Light->DrawDebug(LineBatcher.get());
+				}
 			}
 		}
 

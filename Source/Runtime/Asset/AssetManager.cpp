@@ -117,6 +117,7 @@ void UAssetManager::Init(const FAssetLoadProgress& OnProgress)
 	Get().ScanAssets("Assets", OnProgress);
 	Get().CreateDefaultMeshes();
 	Get().CreateParticleMaterial();
+	Get().CreateLightIconMaterial();
 }
 
 void UAssetManager::ScanAssets(const fs::path& AssetRoot, const FAssetLoadProgress& OnProgress)
@@ -297,6 +298,19 @@ void UAssetManager::CreateParticleMaterial()
 	ParticleMat->ParamLayout = EMaterialParamLayout::ParticleSubUV;
 	ParticleMat->ParamBuffer = RenderCommand::CreateConstantBuffer(256);
 	RegisterAsset("SubUVMaterial", ParticleMat);
+}
+
+// 라이트 아이콘 빌보드용. 흰색 아이콘에 패킷마다 넘긴 Tint(라이트 색)를 곱한다.
+void UAssetManager::CreateLightIconMaterial()
+{
+	UMaterial* IconMat = NewObject<UMaterial>();
+	IconMat->Shader = FRenderResourceManager::GetShaderProgram("Resources/Shader/BillboardIconShader.hlsl");
+	IconMat->Textures.Add(GetAssetByPath<UTexture2D>("Assets/Icons/LightBulb.png"));
+	IconMat->BlendState = EBlendState::AlphaBlend;
+	IconMat->DepthStencilState = EDepthStencilState::ReadOnly;
+	IconMat->ParamLayout = EMaterialParamLayout::BillboardIcon;
+	IconMat->ParamBuffer = RenderCommand::CreateConstantBuffer(sizeof(FVector4));
+	RegisterAsset("LightIconMaterial", IconMat);
 }
 
 void UAssetManager::Shutdown()

@@ -40,5 +40,7 @@ protected:
 	UMaterial* Material = nullptr;
 	UStaticMesh* QuadMesh = nullptr;
 private:
+	// BillboardIcon 머티리얼에 패킷마다 넘기는 색. 렌더 패킷이 주소를 들고 있으므로 멤버로 둔다.
+	FVector4 IconTint = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
 
 };

@@ -6,6 +6,7 @@
 
 #include "GameFramework/Actor.h"
 #include "Engine/World.h"
+#include "Component/LightComponentBase.h"
 
 // Billboard 컴포넌트의 초기 상태를 구성한다.
 UBillboardComponent::UBillboardComponent()
@@ -72,6 +73,23 @@ void UBillboardComponent::SubmitToRenderQueue(FRenderQueue& RenderQueue, const F
 	Packet.Mesh = QuadMesh;
 	Packet.Material = Material;
 	Packet.Model = RenderQueue.StoreWorldMatrix(BillboardWorldMatrix);
+
+	// 아이콘 머티리얼이면 같은 액터에 붙은 라이트의 색으로 칠한다
+	if (Material->ParamLayout == EMaterialParamLayout::BillboardIcon)
+	{
+		IconTint = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
+		for (UActorComponent* Component : GetOwner()->GetComponents())
+		{
+			if (const ULightComponentBase* Light = Cast<ULightComponentBase>(Component))
+			{
+				IconTint = Light->GetLightColor();
+				break;
+			}
+		}
+		Packet.MaterialParamData = &IconTint;
+		Packet.MaterialParamDataSize = sizeof(FVector4);
+	}
+
 	RenderQueue.Add(Packet);
 }
 

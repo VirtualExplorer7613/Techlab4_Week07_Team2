@@ -46,7 +46,10 @@ public:
 		AStaticMeshActor::StaticClass(),  
 		AParticleActor::StaticClass(),
 		ATextRenderActor::StaticClass(),
-		ALightActor::StaticClass(),
+		AAmbientLightActor::StaticClass(),
+		ADirectionalLightActor::StaticClass(),
+		APointLightActor::StaticClass(),
+		ASpotLightActor::StaticClass(),
 		AExponentialHeightFogActor::StaticClass(),
 		AFireBallActor::StaticClass()
 	};

@@ -88,6 +88,7 @@ bool FEngineLoop::PreInit(HINSTANCE hInstance, UClass* EngineClass)
 
 	FSplashScreen::SetText(L"Loading Assets...");
 	FRenderResourceManager::Init();
+	Renderer->PrepareViewModeShaders();
 
 	constexpr float AssetStart = 0.1f;
 	constexpr float AssetEnd = 0.8f;
