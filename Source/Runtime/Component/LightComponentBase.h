@@ -13,10 +13,9 @@ class ULightComponentBase : public USceneComponent
 
 public:
 	ULightComponentBase() = default;
-	virtual ~ULightComponentBase() = default;
+	virtual ~ULightComponentBase() override;
 
-	//virtual void InitializeComponent() override;
-	//virtual void UninitializeComponent() override;
+	virtual void InitializeComponent() override;
 	void SetIntensity(float NewIntensity) { Intensity = NewIntensity; }
 	float GetIntensity() const { return Intensity; }
 	void SetLightColor(const FVector4& NewColor) { LightColor = NewColor; }

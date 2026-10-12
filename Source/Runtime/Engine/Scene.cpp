@@ -285,3 +285,33 @@ void FScene::UnregisterFireBall(UFireBallComponent* FireBall)
 		}
 	}
 }
+
+void FScene::RegisterLight(ULightComponentBase* Light)
+{
+	if (!Light)
+		return;
+
+	for (ULightComponentBase* Existing : LightComponents)
+	{
+		if (Existing == Light)
+			return;
+	}
+	LightComponents.Add(Light);
+}
+
+void FScene::UnregisterLight(ULightComponentBase* Light)
+{
+	for (uint32 i = 0; i < LightComponents.Num(); ++i)
+	{
+		if (LightComponents[i] == Light)
+		{
+			LightComponents.RemoveAt(i, 1);
+			return;
+		}
+	}
+}
+
+void FScene::RemoveAllLights()
+{
+	LightComponents.Empty();
+}

@@ -4,10 +4,12 @@
 #include "Component/BillboardComponent.h"
 #include "Component/PrimitiveComponent.h"
 #include "Component/FireBallComponent.h"
+#include "Component/LightComponent.h"
 #include "Math/Frustum.h"
 #include "Math/BVH.h"
 #include "Render/FogInfo.h"
 #include "Render/Renderer.h"
+
 
 struct FExponentialHeightFogSceneInfo
 {
@@ -38,6 +40,12 @@ public:
 	void UpdateFireBallLight(FRenderer* Renderer);
 	void RegisterFireBall(UFireBallComponent* FireBall);
 	void UnregisterFireBall(UFireBallComponent* FireBall);
+
+	void RegisterLight(ULightComponentBase* Light);
+	void UnregisterLight(ULightComponentBase* Light);
+	void RemoveAllLights();
+
+	TArray<ULightComponentBase*> LightComponents;
 
 	TArray<FPrimitiveSceneProxy*> Proxies;
 	TArray<FPrimitiveSceneProxy*> DirtyProxies;
