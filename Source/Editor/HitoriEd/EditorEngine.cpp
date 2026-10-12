@@ -19,6 +19,7 @@
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/Actor/SpotLight.h"
+#include "GameFramework/Actor/DirectionalLight.h"
 
 #include "Asset/AssetManager.h"
 #include "Render/RenderResourceManager.h"
@@ -42,6 +43,7 @@ namespace
 }
 
 #include "Core/SplashScreen.h"
+#include <GameFramework/Actor/PointLight.h>
 
 FEngineConfig UEditorEngine::GetConfig() const
 {
@@ -639,12 +641,21 @@ void UEditorEngine::RenderOverlayPass(const int32 ViewIndex, UWorld& ViewWorld, 
 			ViewWorld.GetPathTracker().OnRender(LineBatcher.get());
 		}
 
-		// 선택된 액터가 라이트면 원뿔을 같이 쌓는다
+		// 선택된 액터가 라이트면 와이어프레임을 같이 쌓는다
+		// TODO : Visualizer 코드 이식하기
 		if (Gizmo->GetTarget())
 		{
 			if (ASpotLight* LightActor = Cast<ASpotLight>(Gizmo->GetTarget()->GetOwner()))
 			{
 				LightActor->GetSpotLightComponent()->DrawDebug(LineBatcher.get());
+			}
+			if (ADirectionalLight* DirectionalLightActor = Cast<ADirectionalLight>(Gizmo->GetTarget()->GetOwner()))
+			{
+				DirectionalLightActor->GetDirctionalLightComponent()->DrawDebug(LineBatcher.get());
+			}
+			if (APointLight* PointLightActor = Cast<APointLight>(Gizmo->GetTarget()->GetOwner()))
+			{
+				PointLightActor->GetPointLightComponent()->DrawDebug(LineBatcher.get());
 			}
 		}
 

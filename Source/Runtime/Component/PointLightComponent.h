@@ -1,6 +1,8 @@
 #pragma once
 #include "LightComponent.h"
 
+class FLineBatcher;
+
 class UPointLightComponent : public ULightComponent
 {
 	DECLARE_CLASS(UPointLightComponent, ULightComponent)
@@ -19,6 +21,8 @@ public:
 
 	float GeLightFalloffExponent() const { return LightFalloffExponent; }
 	void SetLightFalloffExponent(float InFalloff) { LightFalloffExponent = InFalloff; }
+
+	void DrawDebug(FLineBatcher* LineBatcher) const;
 
 protected:
 	float AttenuationRadius = 6.5f;

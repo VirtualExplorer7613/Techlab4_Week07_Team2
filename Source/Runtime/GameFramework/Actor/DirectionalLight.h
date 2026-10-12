@@ -2,6 +2,7 @@
 
 #include "Info.h"
 #include "Component/DirectionalLightComponent.h"
+#include "Component/StaticMeshComponent.h"
 
 class ADirectionalLight : public AInfo
 {

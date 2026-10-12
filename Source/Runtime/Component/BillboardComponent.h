@@ -43,8 +43,6 @@ protected:
 
 protected:
 	FBillboardMaterialParams BillboardParams;
-	//빌보드 컬러, Material의 BaseColor에 곱해진다.
-	FVector Tint = { 1.f, 1.f, 1.f };
 private:
 
 };

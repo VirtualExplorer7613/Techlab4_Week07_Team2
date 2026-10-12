@@ -248,12 +248,12 @@
                                     "Location": {
                                         "X": 0.0,
                                         "Y": -0.044608354568481445,
-                                        "Z": 3.521000385284424
+                                        "Z": 3.8370394706726074
                                     },
                                     "Rotation": {
-                                        "Pitch": 0.0,
-                                        "Roll": 0.0,
-                                        "Yaw": 0.0
+                                        "Pitch": 8.718452453613281,
+                                        "Roll": -1.3496163298043484e-08,
+                                        "Yaw": 1.8961565494537354
                                     },
                                     "Scale": {
                                         "X": 1.0,
@@ -269,11 +269,6 @@
                             "Name": "UDirectionalLightComponent",
                             "Parent": "UBillboardComponent",
                             "Properties": {
-                                "Direction": {
-                                    "X": 0.5,
-                                    "Y": 0.5,
-                                    "Z": -1.0
-                                },
                                 "Intensity": 0.4000000059604645,
                                 "LightColor": {
                                     "W": 1.0,
@@ -288,7 +283,7 @@
                                         "Z": 0.0
                                     },
                                     "Rotation": {
-                                        "Pitch": 0.0,
+                                        "Pitch": 46.0,
                                         "Roll": 0.0,
                                         "Yaw": 0.0
                                     },

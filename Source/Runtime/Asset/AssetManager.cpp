@@ -303,8 +303,8 @@ void UAssetManager::CreateBillboardIconMaterial()
 		UMaterial* Material = NewObject<UMaterial>();
 		Material->Shader = FRenderResourceManager::GetShaderProgram("Resources/Shader/BillboardShader.hlsl");
 		Material->Textures.Add(GetAssetByPath<UTexture2D>(path));
-		Material->BlendState = EBlendState::Opaque;
-		Material->DepthStencilState = EDepthStencilState::ReadOnly;
+		Material->BlendState = EBlendState::AlphaBlend;
+		Material->DepthStencilState = EDepthStencilState::Disabled;
 		Material->ParamLayout = EMaterialParamLayout::Billboard;
 		Material->ParamBuffer = RenderCommand::CreateConstantBuffer(256);
 		RegisterAsset(key, Material);

@@ -26,7 +26,7 @@ public:
 
 protected:
 	float Intensity = 1.8f;
-	FVector4 LightColor = FVector4(1.0f, 0.0f, 0.8f, 1.0f);
+	FVector4 LightColor = FVector4(1.f, 1.f, 1.f, 1.0f);
 	bool bVisible = true;
 };
 

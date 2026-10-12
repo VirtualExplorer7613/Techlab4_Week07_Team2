@@ -400,7 +400,10 @@ void FScene::UpdateDirectionalLight(FLightConstants & LightConstants, UDirection
 	static FDirectionalLight DirectionalData{};
 
 	const FVector4 Color = LightComponent->GetLightColor();
-	const FVector Direction = LightComponent->GetDirection();
+	// 부모(빌보드 루트)를 기즈모로 돌려도 반영되도록 월드 회전 기준으로 방향을 구한다.
+	FTransform WorldTransform;
+	WorldTransform.Rotation = LightComponent->GetWorldRotation();
+	const FVector Direction = WorldTransform.GetForward().Normalized();
 
 	DirectionalData.ColorIntensity = FVector4(
 		Color.X,
@@ -409,7 +412,8 @@ void FScene::UpdateDirectionalLight(FLightConstants & LightConstants, UDirection
 		std::max<float>(LightComponent->GetIntensity(), 0.0f)
 	);
 
-	DirectionalData.Direction = FVector4(LightComponent->GetDirection(), 0.f);
+	DirectionalData.Direction = Direction;
 
+	//TODO : 우선순위 도입하기
 	LightConstants.DirectionalLight = DirectionalData;
 }
