@@ -139,6 +139,7 @@ project "HitoriEngine"
 	includedirs
 	{
 		"Source/Runtime",
+		"Resources/Shader",
 		"%{IncludeDir.stb}",
 		"%{IncludeDir.json}",
 	}
@@ -176,6 +177,7 @@ project "HitoriEditor"
 	{
 		"Source",             -- "Editor/OutputLog/ConsolePanel.h"처럼 Source 기준 include를 쓴다
 		"Source/Runtime",
+		"Resources/Shader",
 		"Source/Programs",
 		"%{IncludeDir.ImGui}",
 		"%{IncludeDir.ImGui}/backends",

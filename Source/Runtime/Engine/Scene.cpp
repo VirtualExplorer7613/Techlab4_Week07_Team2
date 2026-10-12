@@ -5,6 +5,7 @@
 #include "Component/DirectionalLightComponent.h"
 #include "Component/AmbientLightComponent.h"
 #include "GameFramework/Actor/Info.h"
+#include "Shared/LightDefinitions.h"
 
 void FScene::AddPrimitive(UPrimitiveComponent* Component)
 {
@@ -234,7 +235,7 @@ void FScene::UpdateLightComponents(FRenderer* Renderer)
 		//SpotLight가 PointLight를 상속받기 때문에 먼저 검사해야 한다.
 		if (USpotLightComponent* SpotLightComponent = Cast<USpotLightComponent>(LightComponent))
 		{
-			if (Constants.SpotLightCount >= MaxLightComponents)
+			if (Constants.SpotLightCount >= NUM_SPOT_LIGHT)
 			{
 				continue;
 			}
@@ -243,7 +244,7 @@ void FScene::UpdateLightComponents(FRenderer* Renderer)
 		}
 		else if (UPointLightComponent* PointLightComponent = Cast<UPointLightComponent>(LightComponent))
 		{
-			if (Constants.PointLightCount >= MaxLightComponents)
+			if (Constants.PointLightCount >= NUM_POINT_LIGHT)
 			{
 				continue;
 			}

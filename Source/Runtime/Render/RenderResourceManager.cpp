@@ -23,7 +23,22 @@ void FRenderResourceManager::ScanShaders(const fs::path& ShaderRoot)
 		if (Entry.path().extension() != ".hlsl") continue;
 
 		FString Path = Entry.path().generic_string();
-		LoadOrCompileShader(Path);
+		if (const TArray<FShaderPermutation> *Perms = PermutationTable.Find(Path))
+		{
+			LoadShaderWithDefines(Path, *Perms);
+		}
+		else
+		{
+			LoadOrCompileShader(Path);
+		}
+	}
+}
+
+void FRenderResourceManager::LoadShaderWithDefines(const FString& ShaderPath, const TArray<FShaderPermutation>& Perms)
+{
+	for (const FShaderPermutation& Perm : Perms)
+	{
+		LoadOrCompileShader(ShaderPath, Perm.Defines.GetData(), Perm.Name);
 	}
 }
 
@@ -34,8 +49,16 @@ void FRenderResourceManager::Shutdown()
 	Get().ShaderProgramMap.Empty();
 }
 
-FShaderProgram* FRenderResourceManager::GetShaderProgram(const FString& InPath)
+FShaderProgram* FRenderResourceManager::GetShaderProgram(const FString& InPath, const FString& Macro)
 {
+	if (!Macro.empty())
+	{
+		if (TUniquePtr<FShaderProgram>* Found = Get().ShaderProgramMap.Find(InPath + "#" + Macro))
+			return Found->get();
+		
+		HTR_LOG(Error, "[Shader] permutation not found: {}#{}", InPath, Macro);
+	}
+
 	if (TUniquePtr<FShaderProgram>* Found = Get().ShaderProgramMap.Find(InPath))
 		return Found->get();
 
@@ -48,16 +71,17 @@ FShaderProgram* FRenderResourceManager::GetShaderProgram(const FString& InPath)
 	return nullptr;
 }
 
-void FRenderResourceManager::LoadOrCompileShader(const FString& Path)
+void FRenderResourceManager::LoadOrCompileShader(const FString& Path, const D3D_SHADER_MACRO* defines, const FString &AdditionalName)
 { 
 	FString VSCSOPath;
 	FString PSCSOPath;
-	FShaderByteCode VSCode = RenderUtil::GetOrCompile(Path, "mainVS", EShaderType::Vertex, VSCSOPath);
-	FShaderByteCode PSCode = RenderUtil::GetOrCompile(Path, "mainPS", EShaderType::Pixel, PSCSOPath);
+	FShaderByteCode VSCode = RenderUtil::GetOrCompile(Path, "mainVS", EShaderType::Vertex, VSCSOPath, defines, AdditionalName);
+	FShaderByteCode PSCode = RenderUtil::GetOrCompile(Path, "mainPS", EShaderType::Pixel, PSCSOPath, defines, AdditionalName);
+	const FString Key = AdditionalName.empty() ? Path : Path + "#" + AdditionalName;
 
 	if (!VSCode.IsValid() || !PSCode.IsValid())
 	{
-		HTR_LOG(Error, "[Shader] compile failed: {}", Path);
+		HTR_LOG(Error, "[Shader] compile failed: {}", Key);
 		return;
 	}
 
@@ -66,7 +90,7 @@ void FRenderResourceManager::LoadOrCompileShader(const FString& Path)
 
 	if (!Vs || !Vs->IsValid() || !Ps || !Ps->IsValid())
 	{
-		HTR_LOG(Error, "[Shader] device create failed: {}", Path);
+		HTR_LOG(Error, "[Shader] device create failed: {}", Key);
 		return;
 	}
 
@@ -75,8 +99,8 @@ void FRenderResourceManager::LoadOrCompileShader(const FString& Path)
 
 	VertexShaderMap[VSCSOPath] = std::move(Vs);
 	PixelShaderMap[PSCSOPath] = std::move(Ps);
-	ShaderProgramMap[Path] = MakeUnique<FShaderProgram>(VsRaw, PsRaw);
+	ShaderProgramMap[Key] = MakeUnique<FShaderProgram>(VsRaw, PsRaw);
 
-	HTR_LOG(Info, "[Shader] loaded: {}", Path);
+	HTR_LOG(Info, "[Shader] loaded: {}", Key);
 
 }

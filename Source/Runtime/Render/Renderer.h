@@ -6,9 +6,9 @@
 
 #include "RenderingInfo.h"
 #include "Occlusion/GPUOcclusion.h"
+#include "Shared/LightDefinitions.h"
 
 constexpr uint32 ObjectSlotBytes = 256;
-constexpr uint32 MaxLightComponents = 16;
 
 struct FPerObjectConstants
 {
@@ -69,8 +69,8 @@ struct alignas(16) FDirectionalLight
 
 struct alignas(16) FLightConstants
 {
-	FPointLight			PointLights[MaxLightComponents];
-	FSpotLight			SpotLights[MaxLightComponents];
+	FPointLight			PointLights[NUM_POINT_LIGHT];
+	FSpotLight			SpotLights[NUM_SPOT_LIGHT];
 	FAmbientLight		AmbientLight;
 	FDirectionalLight	DirectionalLight;
 	uint32 PointLightCount = 0;

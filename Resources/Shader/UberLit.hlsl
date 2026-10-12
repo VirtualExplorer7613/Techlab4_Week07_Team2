@@ -1,7 +1,10 @@
 #pragma pack_matrix(row_major)
 
-#define NUM_POINT_LIGHT 16
-#define NUM_SPOT_LIGHT 16
+#include "Shared/LightDefinitions.h"
+
+#if !defined(LIGHTING_MODEL_GOURAUD) && !defined(LIGHTING_MODEL_LAMBERT) && !defined(LIGHTING_MODEL_PHONG) && !defined(LIGHTING_MODEL_UNLIT)
+    #define LIGHTING_MODEL_PHONG 1
+#endif
 
 cbuffer Viewconstants : register(b0)
 {
@@ -58,6 +61,13 @@ cbuffer LightConstants : register(b3)
     uint SpotLightCount = 0;
     uint2 LightPadding;
 };
+
+float4 CalculateAmbientLight(FAmbientLightInfo info)
+{
+    float4 result;
+    return result;
+};
+
 
 struct VS_INPUT
 {
