@@ -1,5 +1,12 @@
 ﻿#include "EnginePCH.h"
 #include "Scene.h"
+#include "Render/LightInfo.h"
+#include "Component/LightComponentBase.h"
+#include "Component/LightComponent.h"
+#include "Component/PointLightComponent.h"
+#include "Component/SpotLightComponent.h"
+#include "Component/DirectionalLightComponent.h"
+#include "Component/AmbientLightComponent.h"
 
 void FScene::AddPrimitive(UPrimitiveComponent* Component)
 {
@@ -314,4 +321,76 @@ void FScene::UnregisterLight(ULightComponentBase* Light)
 void FScene::RemoveAllLights()
 {
 	LightComponents.Empty();
+}
+
+void FScene::UpdateLights(FRenderer* Renderer)
+{
+	if (!Renderer)
+		return;
+	FLightConstants LightConstants{};
+	bool bHasDirectionalLight = false;
+
+	for (ULightComponentBase* Light : LightComponents) 
+	{
+		if (!Light || !Light->IsVisible())
+			continue;
+
+		const FVector4 C = Light->GetLightColor();
+		const float I = Light->GetIntensity();
+		const FVector4 Color(C.X * I, C.Y * I, C.Z * I, 0.0f);
+
+		FTransform T;
+		T.Rotation = Light->GetWorldRotation();
+		const FVector Forward = T.GetForward();
+
+		if(USpotLightComponent* Spot = Cast<USpotLightComponent>(Light))
+		{
+			if (LightConstants.SpotLightCount >= MaxSpotLights)
+				continue;
+			FSpotLightInfo& Info = LightConstants.SpotLights[LightConstants.SpotLightCount++];
+
+			const FVector P = Spot->GetWorldLocation();
+			Info.PositionRadius = FVector4(P.X, P.Y, P.Z, std::max<float>(Spot->GetAttenuationRadius(), 0.001f));
+			Info.ColorFalloff = FVector4(Color.X, Color.Y, Color.Z, std::max<float>(Spot->GetLightFalloffExponent(), 0.001f));
+
+			// 원뿔 방향
+			Info.Direction = FVector4(Forward.X, Forward.Y, Forward.Z, 0.0f);
+
+			// 원뿔 각도
+			const float Outer = FMath::Clamp(Spot->GetOuterConeAngle(), 0.0f, 90.0f);
+			const float Inner = FMath::Clamp(Spot->GetInnerConeAngle(), 0.0f, Outer);
+			Info.ConeCos = FVector4(std::cos(FMath::DegreesToRadians(Inner)), std::cos(FMath::DegreesToRadians(Outer)), 0.0f, 0.0f);
+
+			
+		}
+		else if (UPointLightComponent* Point = Cast<UPointLightComponent>(Light))
+		{
+			if (LightConstants.PointLightCount >= MaxPointLights)
+				continue;
+			FPointLightInfo& Info = LightConstants.PointLights[LightConstants.PointLightCount++];
+			const FVector P = Point->GetWorldLocation();
+			Info.PositionRadius = FVector4(P.X, P.Y, P.Z, std::max<float>(Point->GetAttenuationRadius(), 0.001f));
+			Info.ColorFalloff = FVector4(Color.X, Color.Y, Color.Z, std::max<float>(Point->GetLightFalloffExponent(), 0.001f));
+		}
+		else if (UDirectionalLightComponent* Directional = Cast<UDirectionalLightComponent>(Light))
+		{
+			if (bHasDirectionalLight)
+				continue;
+			bHasDirectionalLight = true;
+			FDirectionalLightInfo& Info = LightConstants.Directional;
+			Info.Direction = FVector4(Forward.X, Forward.Y, Forward.Z, 0.0f);
+			Info.Color = Color;
+
+		}
+		else if (UAmbientLightComponent* Ambient = Cast<UAmbientLightComponent>(Light))
+		{
+			LightConstants.Ambient.Color.X += Color.X;
+			LightConstants.Ambient.Color.Y += Color.Y;
+			LightConstants.Ambient.Color.Z += Color.Z;
+			LightConstants.Ambient.Color.W += Color.W;
+		}
+
+	}
+
+	//Renderer->SetLightConstants(LightConstants);
 }

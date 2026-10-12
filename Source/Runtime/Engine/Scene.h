@@ -45,6 +45,8 @@ public:
 	void UnregisterLight(ULightComponentBase* Light);
 	void RemoveAllLights();
 
+	void UpdateLights(FRenderer* Renderer);
+
 	TArray<ULightComponentBase*> LightComponents;
 
 	TArray<FPrimitiveSceneProxy*> Proxies;
