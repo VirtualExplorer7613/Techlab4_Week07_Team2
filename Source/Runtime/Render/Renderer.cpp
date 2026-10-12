@@ -141,7 +141,7 @@ void FRenderer::RenderAll(FRenderQueue& InQueue, const FMatrix& ViewProjection)
 
 void FRenderer::RenderOpaque(const FMatrix& ViewProjection)
 {
-	RenderCommand::BindConstantBuffer(3, FireBallLightCB.get(), EShaderBindFlagBits::Pixel);
+	RenderCommand::BindConstantBuffer(3, FireBallLightCB.get(), EShaderBindFlagBits::Pixel | EShaderBindFlagBits::Vertex);
 
 	DrawStaticGroups();
 	DrawPackets(0, FirstTranslucentIndex, ViewProjection);
@@ -150,7 +150,7 @@ void FRenderer::RenderOpaque(const FMatrix& ViewProjection)
 // RenderOpaque가 남긴 반투명 패킷을 먼 것부터 그린다.
 void FRenderer::RenderTranslucent(const FMatrix& ViewProjection)
 {
-	RenderCommand::BindConstantBuffer(3, FireBallLightCB.get(), EShaderBindFlagBits::Pixel);
+	RenderCommand::BindConstantBuffer(3, FireBallLightCB.get(), EShaderBindFlagBits::Pixel | EShaderBindFlagBits::Vertex);
 
 	DrawPackets(FirstTranslucentIndex, SortEntries.Num(), ViewProjection);
 	RenderPackets.Reset();

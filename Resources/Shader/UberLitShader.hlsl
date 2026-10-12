@@ -6,7 +6,7 @@
 #define LIGHTING_MODEL_BLINN_PHONG 3
 
 #ifndef LIGHTING_MODEL
-#define LIGHTING_MODEL LIGHTING_MODEL_BLINN_PHONG
+#define LIGHTING_MODEL LIGHTING_MODEL_GOURAUD
 #endif
 
 static const float PI = 3.14159265358979323846f;
@@ -61,6 +61,10 @@ struct PS_INPUT
     float4 color : COLOR;
     float2 uv : TEXCOORD0;
     float3 worldPos : TEXCOORD1;
+#if LIGHTING_MODEL == LIGHTING_MODEL_GOURAUD
+    float3 diffuse : TEXCOORD2;
+    float3 specular : TEXCOORD3;
+#endif
 };
 
 Texture2D g_txColor : register(t0);
@@ -79,12 +83,8 @@ void ComputeLight(float3 N, float3 L, float3 V, float3 Albedo, float3 LightColor
     float3 Kd = Albedo * (1.0f - SpecularColor);
     OutDiffuse = Kd / PI * NdotL * E;
     
-#if LIGHTING_MODEL == LIGHTING_MODEL_PHONG
-    if(NdotL <= 0.0f)
-    {
-        OutSpecular = float3(0, 0, 0);
-        return;
-    }
+#if LIGHTING_MODEL == LIGHTING_MODEL_PHONG || LIGHTING_MODEL == LIGHTING_MODEL_GOURAUD
+    if(NdotL <= 0.0f) { OutSpecular = float3(0, 0, 0); return; }
     float3 R = reflect(-L, N);
     float RdotV = saturate(dot(R, V));
     float Norm = (Shininess + 2.0f) / (2.0f * PI);
@@ -103,9 +103,40 @@ void ComputeLight(float3 N, float3 L, float3 V, float3 Albedo, float3 LightColor
 #endif
 }
 
+void AccumlateLight(float3 N, float3 V, float3 WorldPos, float3 Albedo, inout float3 OutDiffuse, inout float3 OutSpecular)
+{
+    OutDiffuse = float3(0, 0, 0);
+    OutSpecular = float3(0, 0, 0);
+    float3 d, s;
+    ComputeLight(N, -LightDir, V, Albedo, LightColor, d, s);
+    OutDiffuse += d;
+    OutSpecular += s; 
+    
+    for (uint i = 0; i < FireBallCount; ++i)
+    {
+        FireBallLight fireBall = FireBalls[i];
+        float4 PositionRadius = fireBall.PositionRadius;
+        float4 ColorIntensity = fireBall.ColorIntensity;
+        float4 FalloffEnabled = fireBall.FalloffEnabled;
+        
+        float distance = length(PositionRadius.xyz - WorldPos);
+        float radius = max(PositionRadius.w, 0.001f);
+        
+        float Basefalloff = saturate(1.0f - distance / radius);
+        float falloff = pow(Basefalloff, max(FalloffEnabled.x, 0.001f));
+        
+        float enabled = FalloffEnabled.y;
+        float intensity = ColorIntensity.w;
+        
+        float3 lightDir = normalize(PositionRadius.xyz - WorldPos);
+        ComputeLight(N, lightDir, V, Albedo, ColorIntensity.rgb * intensity * enabled * falloff, d, s);
+        OutDiffuse += d;
+        OutSpecular += s;
+    }
+}
+
 float3 ACESFilmicToneMapping(float3 color)
 {
-    // ACES Filmic Tone Mapping
     float a = 2.51f;
     float b = 0.03f;
     float c = 2.43f;
@@ -125,6 +156,11 @@ PS_INPUT mainVS(VS_INPUT input)
     output.normal = mul(float4(input.n, 0.0f), World).xyz;
     output.color = input.c;
     output.uv = input.t;
+#if LIGHTING_MODEL == LIGHTING_MODEL_GOURAUD
+    float3 N = normalize(output.normal);
+    float3 V = normalize(CameraPos.xyz - output.worldPos);
+    AccumlateLight(N, V, output.worldPos, float3(1,1,1), output.diffuse, output.specular);
+#endif
     return output;
 }
 
@@ -134,45 +170,23 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
     float4 texColor = g_txColor.Sample(g_Sample, input.uv + UVOffset);
     float4 albedo = texColor * BaseColor;
     albedo.rgb = pow(albedo.rgb, 2.2f);
+
+    float3 totalDiffuse = 0, totalSpecular = 0;
+#if LIGHTING_MODEL == LIGHTING_MODEL_GOURAUD
+    totalDiffuse = albedo.rgb * input.diffuse;
+    totalSpecular = input.specular;
+#else
     float3 N = normalize(input.normal); // 현재 표면이 향하고 있는 방향
     float3 V = normalize(CameraPos.xyz - input.worldPos); // 현재 표면에서 카메라가 있는 방향
-    
-    float3 totalDiffuse = 0, totalSpecular = 0;
-    float3 d, s;
-    
-    ComputeLight(N, -LightDir, V, albedo.rgb, LightColor, d, s);
-    totalDiffuse += d;
-    totalSpecular += s;
-   
-    for (uint i = 0; i < FireBallCount; ++i)
-    {
-        FireBallLight fireBall = FireBalls[i];
-        float4 PositionRadius = fireBall.PositionRadius;
-        float4 ColorIntensity = fireBall.ColorIntensity;
-        float4 FalloffEnabled = fireBall.FalloffEnabled;
-        
-        float distance = length(PositionRadius.xyz - input.worldPos);
-        float radius = max(PositionRadius.w, 0.001f);
-        
-        float Basefalloff = saturate(1.0f - distance / radius);
-        float falloff = pow(Basefalloff, max(FalloffEnabled.x, 0.001f));
-        
-        float enabled = FalloffEnabled.y;
-        float intensity = ColorIntensity.w;
-        
-        float3 lightDir = normalize(PositionRadius.xyz - input.worldPos);
-        ComputeLight(N, lightDir, V, albedo.rgb, ColorIntensity.rgb * intensity * enabled * falloff, d, s);
-        totalDiffuse += d;
-        totalSpecular += s;
-    }
-    
-    
+
+    AccumlateLight(N, V, input.worldPos, albedo.rgb, totalDiffuse, totalSpecular);
+#endif
     // Opaque는 알파를 1로 고정한다. 뷰포트 RT를 ImGui가 알파 블렌딩으로 그리므로 알파가 남으면 비쳐 보인다
     float alpha = bOpaque > 0.5f ? 1.0f : albedo.a;
     
     float3 finalRGB = albedo.rgb * AmbientColor + totalDiffuse + totalSpecular;
     finalRGB = ACESFilmicToneMapping(finalRGB);
-    finalRGB = pow(finalRGB, 1.0f / 2.2f); // Gamma Correction
+    finalRGB = pow(finalRGB, 1.0f / 2.2f);
     return float4(finalRGB, alpha);
 }
 
