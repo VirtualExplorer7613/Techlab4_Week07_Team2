@@ -6,6 +6,8 @@
 #include "Component/FireBallComponent.h"
 #include "Component/SpotLightComponent.h"
 #include "Component/AmbientLightComponent.h"
+#include "Component/PointLightComponent.h"
+#include "Component/DirectionalLightComponent.h"
 #include "Math/Frustum.h"
 #include "Math/BVH.h"
 #include "Render/FogInfo.h"
@@ -50,6 +52,14 @@ public:
 	void UnregisterAmbientLight(UAmbientLightComponent* Light);
 	void RemoveAllAmbientLights(){AmbientLightComponents.Reset();}
 
+	void RegisterDirectionalLight(UDirectionalLightComponent* Light);
+	void UnregisterDirectionalLight(UDirectionalLightComponent* Light);
+	void RemoveAllDirectionalLights(){DirectionalLightComponents.Reset();}
+
+	void RegisterPointLight(UPointLightComponent* Light);
+	void UnregisterPointLight(UPointLightComponent* Light);
+	void RemoveAllPointLights(){PointLightComponents.Reset();}
+
 	TArray<FPrimitiveSceneProxy*> Proxies;
 	TArray<FPrimitiveSceneProxy*> DirtyProxies;
 	TArray<FPrimitiveSceneProxy*> RenderStateDirtyProxies;
@@ -71,4 +81,6 @@ public:
 	TArray<UFireBallComponent*> FireBallComponents;
 	TArray<USpotLightComponent*> SpotLightComponents;
 	TArray<UAmbientLightComponent*> AmbientLightComponents;
+	TArray<UDirectionalLightComponent*> DirectionalLightComponents;
+	TArray<UPointLightComponent*> PointLightComponents;
 };

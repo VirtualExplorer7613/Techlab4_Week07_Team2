@@ -21,8 +21,10 @@ public:
 	static void Shutdown();
 
 	static FShaderProgram* GetShaderProgram(const FString& InPath);
+	static FShaderProgram* GetShaderProgram(const FString& Path, EViewMode Mode);
 private:
 	void LoadOrCompileShader(const FString& Path);
+	void LoadShaderVariant(const FString& Path, EViewMode Mode);
 
 	TMap<FString, TUniquePtr<FVertexShader>> VertexShaderMap;
 	TMap<FString, TUniquePtr<FPixelShader>>  PixelShaderMap;

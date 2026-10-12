@@ -522,6 +522,28 @@ bool FMultipleViewportsAdapter::IsViewActive(const int32 ViewIndex) const
     return Views.Mode == ELayoutMode::QuadSplit || ViewIndex == SingleViewIndex;
 }
 
+void FMultipleViewportsAdapter::SetViewMode(int32 Index, EViewMode Mode)
+{
+    if (Index < 0 || Index >= MaxViewCount)
+        return;
+
+    const int32 ModeIndex = static_cast<int32>(Mode);
+
+    if (ModeIndex < 0 || ModeIndex >= static_cast<int32>(EViewMode::Count))
+    {
+        return;
+    }
+
+    ViewModes[Index] = Mode;
+}
+
+EViewMode FMultipleViewportsAdapter::GetViewMode(int32 Index) const
+{
+    if (Index < 0 || Index >= MaxViewCount)
+        return EViewMode::Lit_Lambert;
+    return ViewModes[Index];
+}
+
 // 범위를 검사한 뒤 계산된 View Rect의 const 참조를 반환한다.
 const FRect& FMultipleViewportsAdapter::GetViewRect(const int32 ViewIndex) const
 {

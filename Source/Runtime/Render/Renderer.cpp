@@ -12,6 +12,8 @@
 
 #include "Camera/CameraComponent.h"
 
+#include "RenderResourceManager.h"
+
 #include <algorithm>
 #include <chrono>
 #include <unordered_map>
@@ -465,7 +467,16 @@ void FRenderer::EndObjectConstants()
 // Material마다 Shader/Texture/Sampler/State 꽂기
 void FRenderer::BindMaterial(UMaterial* material)
 {
-	RenderCommand::BindShaderProgram(material->Shader);
+	//RenderCommand::BindShaderProgram(material->Shader);
+
+	FShaderProgram* SelectedShader = material->Shader;
+
+	if (material->ParamLayout == EMaterialParamLayout::StaticMesh)
+	{
+		SelectedShader = FRenderResourceManager::GetShaderProgram("Resources/Shader/UberLit.hlsl", CurrentViewMode);
+	}
+
+	RenderCommand::BindShaderProgram(SelectedShader);
 	RenderCommand::SetBlendState(material->BlendState);
 	// 반투명은 뒤에 그려지는 Grid·다른 반투명을 가리지 않도록 깊이를 쓰지 않는다.
 	const bool bTranslucent = material->BlendState != EBlendState::Opaque;

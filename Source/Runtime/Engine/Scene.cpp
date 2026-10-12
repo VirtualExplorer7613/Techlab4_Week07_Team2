@@ -415,3 +415,55 @@ void FScene::UnregisterAmbientLight(UAmbientLightComponent* Light)
 		}
 	}
 }
+
+void FScene::RegisterDirectionalLight(UDirectionalLightComponent* Light)
+{
+	if (!Light)
+		return;
+
+	for (UDirectionalLightComponent* Existing :	DirectionalLightComponents)
+	{
+		if (Existing == Light)
+			return;
+	}
+
+	DirectionalLightComponents.Add(Light);
+}
+
+void FScene::UnregisterDirectionalLight(UDirectionalLightComponent* Light)
+{
+	for (int32 i = 0; i < DirectionalLightComponents.Num();	++i)
+	{
+		if (DirectionalLightComponents[i] == Light)
+		{
+			DirectionalLightComponents.RemoveAt(i, 1);
+			return;
+		}
+	}
+}
+
+void FScene::RegisterPointLight(UPointLightComponent* Light)
+{
+	if (!Light)
+		return;
+
+	for (UPointLightComponent* Existing : PointLightComponents)
+	{
+		if (Existing == Light)
+			return;
+	}
+
+	PointLightComponents.Add(Light);
+}
+
+void FScene::UnregisterPointLight(UPointLightComponent* Light)
+{
+	for (int32 i = 0; i < PointLightComponents.Num(); ++i)
+	{
+		if (PointLightComponents[i] == Light)
+		{
+			PointLightComponents.RemoveAt(i, 1);
+			return;
+		}
+	}
+}

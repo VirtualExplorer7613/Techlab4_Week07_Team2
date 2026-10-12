@@ -18,6 +18,13 @@ constexpr ImU32 SplitterColor = IM_COL32(55, 55, 55, 230);
 constexpr ImU32 SplitterHoverColor = IM_COL32(255, 192, 0, 255);
 constexpr const char* CameraPresetLabels[] = {
 	"Perspective", "Ortho (Current)", "Top", "Bottom", "Front", "Back", "Left", "Right"};
+constexpr const char* ViewModeLabels[] =
+{
+	"Lit_Gouraud",
+	"Lit_Lambert",
+	"Lit_Phong",
+	"Unlit"
+};
 
 // Stat Overlay
 constexpr float StatOverlayMargin = 8.0f;
@@ -252,6 +259,16 @@ void FViewportsPanel::OnRender()
             if (ImGui::Combo("##FillMode", &Mode, Labels, 2))
                 ViewportAdapter->SetViewWireframe(ViewIndex, Mode == 1);
             ImGui::SameLine();
+
+			int SelectedViewMode = static_cast<int>(ViewportAdapter->GetViewMode(ViewIndex));
+			ImGui::SetNextItemWidth(140.0f);
+
+			if (ImGui::Combo("##ViewMode", &SelectedViewMode, ViewModeLabels, IM_ARRAYSIZE(ViewModeLabels)))
+			{
+				ViewportAdapter->SetViewMode(ViewIndex,	static_cast<EViewMode>(SelectedViewMode));
+			}
+
+			ImGui::SameLine();
         }
         if (CurrentLayoutMode == ELayoutMode::QuadSplit)
 		{

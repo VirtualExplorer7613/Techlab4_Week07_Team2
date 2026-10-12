@@ -2,6 +2,8 @@
 
 #include "SceneComponent.h"
 
+class FLineBatcher;
+
 class ULightComponent : public USceneComponent
 {
 	DECLARE_CLASS(ULightComponent, USceneComponent)
@@ -32,6 +34,8 @@ public:
     {
         bVisible = bInVisible;
     }
+
+    virtual void DrawDebug(FLineBatcher* LineBatcher) const {}
 
 private:
     float Intensity = 1.0f;

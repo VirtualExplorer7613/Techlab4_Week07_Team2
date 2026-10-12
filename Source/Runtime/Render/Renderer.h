@@ -1,6 +1,7 @@
 #pragma once
 
 #include "RenderPacket.h"
+#include "RenderEnums.h"
 #include "Texture2D.h"
 #include "Text/Font.h"
 
@@ -110,6 +111,16 @@ public:
 	void SetFireBallLight(const FFireBallLightConstants& LightConstants);
 	void SetSpotLight(const FSpotLightConstants& Constants);
 
+	void SetViewMode(EViewMode Mode)
+	{
+		const int32 ModeIndex = static_cast<int32>(Mode);
+
+		if (ModeIndex >= 0 && ModeIndex < static_cast<int32>(EViewMode::Count))
+		{
+			CurrentViewMode = Mode;
+		}
+	}
+
 private:
 	// FIFO 소비용 배열의 용량만 재사용하며 매 View의 패킷 값은 새로 채운다.
 	FRenderQueue RenderPackets;
@@ -150,4 +161,6 @@ private:
 	TUniquePtr<FConstantBuffer> FireBallLightCB;
 	FFireBallLightConstants FireBallLightData{};
 	TUniquePtr<FConstantBuffer> SpotLightCB;
+
+	EViewMode CurrentViewMode = EViewMode::Lit_Lambert;
 };

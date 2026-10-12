@@ -18,6 +18,8 @@
 
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
+#include "Component/LightComponent.h"
+#include "GameFramework/Actor.h"
 #include "GameFramework/Actor/SpotLightActor.h"
 
 #include "Asset/AssetManager.h"
@@ -566,6 +568,7 @@ void UEditorEngine::RenderOpaquePass(const int32 ViewIndex, const FRenderingInfo
 		RenderCommand::SetDepthStencilState(EDepthStencilState::Default);
 
 		RenderCommand::SetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		Renderer->SetViewMode(MultipleViewportsAdapter.GetViewMode(ViewIndex));
 		// 반투명은 Grid 뒤에 합성되어야 하므로 불투명만 먼저 그린다.
 		Renderer->RenderQueueSorting(RenderQueue, ViewProjection);
 		Renderer->RenderOpaque(ViewProjection);
@@ -644,9 +647,23 @@ void UEditorEngine::RenderOverlayPass(const int32 ViewIndex, UWorld& ViewWorld, 
 		// 선택된 액터가 라이트면 원뿔을 같이 쌓는다
 		if (Gizmo->GetTarget())
 		{
-			if (ASpotLightActor* LightActor = Cast<ASpotLightActor>(Gizmo->GetTarget()->GetOwner()))
+			/*if (ASpotLightActor* LightActor = Cast<ASpotLightActor>(Gizmo->GetTarget()->GetOwner()))
 			{
 				LightActor->GetSpotLightComponent()->DrawDebug(LineBatcher.get());
+			}*/
+
+			AActor* SelectedActor = Gizmo->GetTarget()->GetOwner();
+
+			if (SelectedActor && SelectedActor->GetWorld() == &ViewWorld)
+			{
+				for (UActorComponent* Component :
+					SelectedActor->GetComponents())
+				{
+					if (ULightComponent* Light = Cast<ULightComponent>(Component))
+					{
+						Light->DrawDebug(LineBatcher.get());
+					}
+				}
 			}
 		}
 
