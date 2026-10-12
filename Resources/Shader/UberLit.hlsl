@@ -2,7 +2,7 @@
 
 #include "Shared/LightDefinitions.h"
 
-#if !defined(LIGHTING_MODEL_GOURAUD) && !defined(LIGHTING_MODEL_LAMBERT) && !defined(LIGHTING_MODEL_PHONG) && !defined(LIGHTING_MODEL_UNLIT) && !defined(VIEWMODE_WOLRDNORMAL)
+#if !defined(LIGHTING_MODEL_GOURAUD) && !defined(LIGHTING_MODEL_LAMBERT) && !defined(LIGHTING_MODEL_PHONG) && !defined(LIGHTING_MODEL_UNLIT) && !defined(VIEWMODE_WORLDNORMAL)
     #define LIGHTING_MODEL_PHONG 1
 #endif
 
@@ -57,8 +57,8 @@ cbuffer LightConstants : register(b3)
     FSpotLightInfo SpotLights[NUM_SPOT_LIGHT];
     FAmbientLightInfo AmbientLight;
     FDirectionalLightInfo DirectionalLight;
-    uint PointLightCount = 0;
-    uint SpotLightCount = 0;
+    uint PointLightCount;
+    uint SpotLightCount;
     uint2 LightPadding;
 };
 
@@ -99,10 +99,11 @@ float3 CalculateSpotLightLight(FSpotLightInfo info, float3 worldPos, float3 norm
     //SpotLight는 거리에 따른 감쇠와 Cone에 따른 감쇠 두가지가 있다.
     float Distancefalloff = saturate(1.0f - distance / radius);
         
-    //콘의 어느 범위에 속하는가 = cos(=spot 전방벡터와 -L 내적) - cosOuter * (1 / cosInner - cosOuter)
+    //콘의 어느 범위에 속하는가 = (cos(=spot 전방벡터와 -L 내적) - cosOuter) * (1 / (cosInner - cosOuter))
+    //콘 감쇠 지수(FalloffEnabled.z)는 거리 감쇠 지수(FalloffEnabled.x)와 독립적이다 (D3D9 Falloff)
     float3 lightDir = normalize(PositionRadius.xyz - worldPos);
     float spotforwarddotL = dot(-lightDir, SpotFowardVector);
-    float Conefalloff = saturate((spotforwarddotL - OutAngleInvCosDiff.x) * OutAngleInvCosDiff.y);
+    float Conefalloff = pow(saturate((spotforwarddotL - OutAngleInvCosDiff.x) * OutAngleInvCosDiff.y), max(FalloffEnabled.z, 0.001f));
     float falloff = pow(Distancefalloff, max(FalloffEnabled.x, 0.001f)) * Conefalloff;
         
     float enabled = FalloffEnabled.y;
@@ -121,7 +122,7 @@ float3 CalculateAmbientLight(FAmbientLightInfo info)
 
 float3 CalculateDirectionalLight(FDirectionalLightInfo info, float3 worldPos, float3 normal)
 {
-    float directionNdotL = saturate(dot(normal, -DirectionalLight.Direction.xyz));
+    float directionNdotL = saturate(dot(normal, -info.Direction.xyz));
     return info.ColorIntensity.xyz * info.ColorIntensity.w * directionNdotL;
 };
 

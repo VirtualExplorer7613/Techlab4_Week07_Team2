@@ -346,7 +346,7 @@ void FScene::UpdateSpotLight(FLightConstants & LightConstants, USpotLightCompone
 	SpotData.FalloffEnabled = FVector4(
 		std::max<float>(LightComponent->GeLightFalloffExponent(), 0.001f),
 		1.0f,
-		0.0f,
+		std::max<float>(LightComponent->GetConeFalloffExponent(), 0.001f),
 		0.0f
 	);
 

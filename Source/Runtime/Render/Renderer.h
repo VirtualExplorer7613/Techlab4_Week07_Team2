@@ -51,8 +51,8 @@ struct alignas(16) FSpotLight
 {
 	FVector4 PositionRadius = FVector4(0, 0, 0, 0); // xyz: 위치, w: 반경
 	FVector4 ColorIntensity = FVector4(0, 0, 0, 0); // rgb: 색상, w: 강도
-	FVector4 FalloffEnabled = FVector4(1, 0, 0, 0); // x: 반경 감쇠, y: 사용 여부, zw: 패딩
-	FVector4 OutAngleInvCosDiff = FVector4(0, 0, 0, 0);// x : InnerAngle, y : outerAngle
+	FVector4 FalloffEnabled = FVector4(1, 0, 1, 0); // x: 반경 감쇠, y: 사용 여부, z : 콘 사이 감쇠, w: 패딩
+	FVector4 OutAngleInvCosDiff = FVector4(0, 0, 0, 0);// x : cosOuter, y : 1 / (cosInner - cosOuter)
 	FVector4 ForwardVector = FVector4(1, 0, 0, 0);		// xyz : 전방벡터
 };
 
