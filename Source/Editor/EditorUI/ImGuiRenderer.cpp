@@ -83,6 +83,7 @@ namespace
 		style->TabBorderSize = 1.0f;
 		style->TabRounding = 0.0f;
 		style->WindowRounding = 4.0f;
+		style->FontScaleDpi = 1.7f;
 	}
 }
 
