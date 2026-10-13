@@ -71,10 +71,14 @@ cbuffer LightConstants : register(b3)
 cbuffer TileBasedCullingConstants : register(b4)
 {
     matrix View;
-    matrix Projection;
+    matrix InvProjection;
     
     uint2 TileCount;
     uint2 ScreenSize;
+    
+    uint TilePointLightCount;
+    uint TileSpotLightCount;
+    uint2 Padding;
 };
 
 // ACES Filmic Tone Mapping

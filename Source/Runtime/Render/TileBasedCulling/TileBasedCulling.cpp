@@ -10,6 +10,7 @@ namespace
 {
 	// 셰이더 폴더의 .hlsl은 전부 VS/PS로 자동 컴파일되므로 컴퓨트 셰이더는 소스를 여기에 둔다.
 	constexpr char TileBasedCullingShaderSource[] = R"(
+#pragma pack_matrix(row_major)
 #define TILE_SIZE 16
 #define MAX_LIGHTS_PER_TILE 64
 #define SPOT_FLAG 0x80000000
@@ -17,8 +18,18 @@ namespace
 //Tile Culling에 필요한 상수 버퍼
 cbuffer TileCullConstants : register(b0)
 {
-   //...
+    matrix View;
+    matrix InvProjection;
+    
+    uint2 TileCount;
+    uint2 ScreenSize;
+    
+    uint TilePointLightCount;
+    uint TileSpotLightCount;
+    uint2 Padding;
 };
+
+
 
 //StructuredBuffer (읽기용)
 StructuredBuffer<FPointLightInfo> PointLights : register(t0);
@@ -87,10 +98,50 @@ void TileCullCS(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint G
 		return Buffer;
 	}
 
-	struct FTileCullConstants
+	constexpr uint32 TileSize = 16;
+	constexpr uint32 MaxLightsPerTile = 64;
+
+	bool CreateRWStructuredBuffer(uint32 Stride, uint32 Count, ComPtr<ID3D11Buffer>& OutBuffer, ComPtr<ID3D11UnorderedAccessView>& OutUAV, ComPtr<ID3D11ShaderResourceView>& OutSRV)
 	{
-		//...
+		ID3D11Device* Device = RenderCommand::GetDevice();
+
+		D3D11_BUFFER_DESC Desc{};
+		Desc.ByteWidth = Stride * Count;
+		Desc.Usage = D3D11_USAGE_DEFAULT;
+		Desc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
+		Desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+		Desc.StructureByteStride = Stride;
+
+		D3D11_UNORDERED_ACCESS_VIEW_DESC UAVDesc{};
+		UAVDesc.Format = DXGI_FORMAT_UNKNOWN;
+		UAVDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+		UAVDesc.Buffer.NumElements = Count;
+
+		D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc{};
+		SRVDesc.Format = DXGI_FORMAT_UNKNOWN;
+		SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+		SRVDesc.Buffer.NumElements = Count;
+
+		if (FAILED(Device->CreateBuffer(&Desc, nullptr, OutBuffer.GetAddressOf())) ||
+			FAILED(Device->CreateUnorderedAccessView(OutBuffer.Get(), &UAVDesc, OutUAV.GetAddressOf())) ||
+			FAILED(Device->CreateShaderResourceView(OutBuffer.Get(), &SRVDesc, OutSRV.GetAddressOf())))
+			return false;
+		return true;
+	}
+
+	struct alignas(16) FTileCullConstants
+	{
+		FMatrix View;
+		FMatrix InvProjection;
+
+		uint32 TileCount[2] = {}; // x,y
+		uint32 ScreenSize[2] = {}; // 너비,높이
+
+		uint32 TilePointLightCount = 0;
+		uint32 TileSpotLightCount = 0;
+		uint32 Padding[2] = {};
 	};
+	static_assert(sizeof(FTileCullConstants)  == 160, "TileCullConstants must be 16-byte aligned");
 }
 
 bool FTileBasedCulling::Init()
@@ -117,3 +168,25 @@ bool FTileBasedCulling::Run()
 	//읽을 구조화된 버퍼 바인딩
 	//Write할 구조화된 버퍼 바인딩
 }
+
+bool FTileBasedCulling::EnsureTileCapacity(uint32 TileCount)
+{
+	if (TileCount <= TileHeaderCapacity && TileHeaderBuffer && TileLightIndicesBuffer)
+		return true;
+
+	TileHeaderBuffer.Reset(); TileHeaderSRV.Reset(); TileHeaderUAV.Reset();
+	TileLightIndicesBuffer.Reset(); TileLightIndicesSRV.Reset(); TileLightIndicesUAV.Reset();
+	TileHeaderCapacity = 0;
+
+	if (!CreateRWStructuredBuffer(sizeof(uint64), TileCount, TileHeaderBuffer, TileHeaderUAV, TileHeaderSRV) ||
+		!CreateRWStructuredBuffer(sizeof(uint32), MaxLightsPerTile * TileCount, TileLightIndicesBuffer, TileLightIndicesUAV, TileLightIndicesSRV))
+	{
+		HTR_LOG(Error, "[TileBasedCulling] Failed to create RWStructuredBuffers for tile culling.");
+		return false;
+	}
+
+	TileHeaderCapacity = TileCount;
+	return true;
+}
+
+
