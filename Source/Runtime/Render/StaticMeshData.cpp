@@ -183,6 +183,93 @@ void FStaticMeshData::OptimizeTriangleOrderForVertexCache()
 	}
 }
 
+void FStaticMeshData::CalculateTangents()
+{
+	const int32 VertexCount = Vertices.Num();
+
+	if (VertexCount == 0)
+		return;
+
+	TArray<FVector> TangentSums;
+	TangentSums.Init(FVector(0.0f), VertexCount);
+
+	TArray<FVector> BitangentSums;
+	BitangentSums.Init(FVector(0.0f), VertexCount);
+
+
+	for (int32 i = 0; i + 2 < Indices.Num(); i += 3)
+	{
+		const uint32 I0 = Indices[i];
+		const uint32 I1 = Indices[i + 1];
+		const uint32 I2 = Indices[i + 2];
+
+		//  Position / Normal / Color / Texcoord(UV)
+		const FVertexPNCT& V0 = Vertices[I0];
+		const FVertexPNCT& V1 = Vertices[I1];
+		const FVertexPNCT& V2 = Vertices[I2];
+
+		const FVector E1 = V1.Position - V0.Position;
+		const FVector E2 = V2.Position - V0.Position;
+
+		// UV 변화량
+		const FVector2 DUv1 = V1.UV - V0.UV;
+		const FVector2 DUv2 = V2.UV - V0.UV;
+
+		const float Det = DUv1.X * DUv2.Y - DUv1.Y * DUv2.X;
+
+		// UV가 일직선이거나 겹치면 T/B를 구할 수 없다.
+		if (std::abs(Det) < 1e-8f)
+			continue;
+
+		// 면적이 거의 없는 삼각형도 제외
+		if (E1.Cross(E2).SizeSquared() < 1e-12f)
+			continue;
+
+		const float InvDet = 1.0f / Det;
+
+		const FVector T = (E1 * DUv2.Y - E2 * DUv1.Y) * InvDet;
+		const FVector B = (E2 * DUv1.X - E1 * DUv2.X) * InvDet;
+
+
+		// 정점을 많이 공유하는 메쉬를 고려하여 정점의 평균 방향을 만든다.
+		// https://learnopengl.com/Advanced-Lighting/Normal-Mapping 의 One last thing 참고
+		TangentSums[I0] += T;
+		TangentSums[I1] += T;
+		TangentSums[I2] += T;
+
+		BitangentSums[I0] += B;
+		BitangentSums[I1] += B;
+		BitangentSums[I2] += B;
+	}
+
+	for (int32 i = 0; i < VertexCount; ++i)
+	{
+		const FVector N = Vertices[i].Normal.GetSafeNormal(1e-12f, FVector(0.0f, 0.0f, 1.0f));
+
+		const FVector& SumT = TangentSums[i];
+
+		// Tangent의 Normal 방향 성분 제거
+		FVector T = SumT - N * N.Dot(SumT);
+
+		// 유효한 UV가 없거나 누적값이 상쇄된 경우의 대체 축
+		if (T.SizeSquared() < 1e-12f)
+		{
+			// 임시 축 지정
+			const FVector Axis = std::abs(N.Z) < 0.9f ? FVector(0.0f, 0.0f, 1.0f) : FVector(0.0f, 1.0f, 0.0f);
+
+			T = Axis.Cross(N);
+		}
+
+		T = T.GetSafeNormal(1e-12f);
+
+		// 실제 UV의 B 방향과 cross(N, T)의 방향을 비교한다.
+		const float Sign =N.Cross(T).Dot(BitangentSums[i]) < 0.0f ? -1.0f : 1.0f;
+
+		Vertices[i].Tangent = FVector4(T, Sign);
+	}
+
+}
+
 void FStaticMeshData::BuildTriangleBVH()
 {
 	TArray<FMeshTriangleElement> Elements;

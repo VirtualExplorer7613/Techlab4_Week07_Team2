@@ -172,6 +172,35 @@ namespace
 					return false;
 				}
 			}
+			else if (Keyword == "map_Bump" || Keyword == "map_bump" ||	Keyword == "bump" || Keyword == "norm")
+			{
+				FString MapNormal;
+				float Strength = 1.0f;
+
+				if (!(Stream >> MapNormal))
+				{
+					HTR_LOG(Warning, "[MTL] {}:{}: normal map without path", Path, LineNumber);
+					continue;
+				}
+
+				// 예: map_Bump -bm 1.000000 normal.png
+				if (MapNormal == "-bm")
+				{
+					if (!(Stream >> Strength >> MapNormal))
+					{
+						HTR_LOG(Warning,"[MTL] {}:{}: invalid normal map '{}'", Path, LineNumber, Line);
+						continue;
+					}
+				}
+
+				if (!TransformPath(Path, MapNormal, MtlInfo.MapNormal))
+				{
+					HTR_LOG(Warning,"[MTL] {}:{}: invalid normal map path '{}'", Path, LineNumber, Line);
+					continue;
+				}
+
+				MtlInfo.NormalStrength = Strength;
+			}
 			else if (Keyword == "d")
 			{
 				if (!(Stream >> MtlInfo.D))
@@ -389,6 +418,8 @@ bool FObjImporter::Cook(const FObjInfo& Raw, FStaticMeshData& Out)
 		CookedMtl.Name = RawMtl.Name;
 		CookedMtl.BaseColor.Set(RawMtl.Kd, RawMtl.D);
 		CookedMtl.DiffuseTexturePath = RawMtl.MapKd;
+		CookedMtl.NormalTexturePath = RawMtl.MapNormal;
+		CookedMtl.NormalStrength = RawMtl.NormalStrength;
 		Cooked.MaterialSlots.Add(std::move(CookedMtl));
 	}
 
@@ -487,6 +518,7 @@ bool FObjImporter::Cook(const FObjInfo& Raw, FStaticMeshData& Out)
 		HTR_LOG(Error, "[OBJ] {}: {}", Raw.Path, Error);
 		return false;
 	}
+	Cooked.CalculateTangents();
 
 	Out = std::move(Cooked);
 	return true;

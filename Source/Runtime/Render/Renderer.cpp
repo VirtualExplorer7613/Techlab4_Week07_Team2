@@ -479,10 +479,26 @@ void FRenderer::BindMaterial(UMaterial* material, const EViewMode ViewMode)
 	RenderCommand::SetDepthStencilState(bTranslucent && material->DepthStencilState == EDepthStencilState::Default
 		? EDepthStencilState::ReadOnly : material->DepthStencilState);
 
-	for (int i = 0; i < material->Textures.size(); i++)
+	//for (int i = 0; i < material->Textures.size(); i++)
+	//{
+	//	RenderCommand::BindShaderResource(i, material->Textures[i], EShaderBindFlagBits::Pixel);
+	//}
+
+	int32 TextureSlotCount = static_cast<int32>(material->Textures.Num());
+
+	// StaticMesh는 텍스처 배열이 한 칸이어도 t1까지 처리한다.
+	if (material->ParamLayout == EMaterialParamLayout::StaticMesh && TextureSlotCount < 2)
 	{
-		RenderCommand::BindShaderResource(i, material->Textures[i], EShaderBindFlagBits::Pixel);
+		TextureSlotCount = 2;
 	}
+
+	for (int32 Slot = 0; Slot < TextureSlotCount; ++Slot)
+	{
+		UTexture2D* Texture = Slot < static_cast<int32>(material->Textures.Num()) ? material->Textures[Slot] : nullptr;
+
+		RenderCommand::BindShaderResource(Slot,	Texture, EShaderBindFlagBits::Pixel);
+	}
+
 	RenderCommand::BindSamplerState(0, material->SamplerState, EShaderBindFlagBits::Pixel);
 }
 
@@ -495,13 +511,21 @@ void FRenderer::UpdateMaterialParams(const FRenderPacket& RenderPacket)
 	{
 		//break; // 라이팅 적용 시 제거
 
+		const UMaterial* Material = RenderPacket.Material;
 		const float TotalTime = EngineTimer::GetTotalTime();
+
+		UTexture2D* NormalTexture =	Material->Textures.Num() > 1 ? Material->Textures[1] : nullptr;
+		FTexture2D* NormalResource = NormalTexture ? NormalTexture->GetResource() : nullptr;
+
+		const bool bHasNormalMap = NormalResource && NormalResource->GetSRV();
 
 		FStaticMeshMaterialParams Params{};
 		Params.BaseColor = RenderPacket.Material->BaseColor;
 		Params.UVOffset = RenderPacket.Material->UVScrollSpeed * TotalTime;
 		Params.bOpaque = RenderPacket.Material->BlendState == EBlendState::Opaque ? 1.0f : 0.0f;
 		Params.Shininess = RenderPacket.Material->Shininess;
+		Params.NormalStrength = Material->NormalStrength;
+		Params.HasNormalMap = bHasNormalMap ? 1.0f : 0.0f;
 
 		RenderCommand::UpdateBufferData(RenderPacket.Material->ParamBuffer.get(), &Params, sizeof(FStaticMeshMaterialParams));
 		RenderCommand::BindConstantBuffer(1, RenderPacket.Material->ParamBuffer.get(), EShaderBindFlagBits::Pixel | EShaderBindFlagBits::Vertex);

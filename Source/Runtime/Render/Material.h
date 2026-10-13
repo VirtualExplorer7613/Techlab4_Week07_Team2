@@ -22,6 +22,10 @@ struct FStaticMeshMaterialParams
 	FVector2 UVOffset;
 	float bOpaque; // 1이면 PS가 알파를 1로 출력한다
 	float Shininess;
+
+	float NormalStrength = 1.0f;
+	float HasNormalMap = 0.0f;
+	float MaterialPadding[2] = {}; // 총 48바이트
 };
 
 struct FBillboardMaterialParams
@@ -49,6 +53,7 @@ public:
 	FVector2 UVScrollSpeed = FVector2(0.0f, 0.0f);
 	float Shininess = 32.f;   // Blinn-Phong 하이라이트 크기. 클수록 작고 날카롭다
 
+	float NormalStrength = 1.0f;
 	bool bIsInstance = false;
 
 	// 인스턴스가 복제된 원본. 인스턴스는 경로가 없어서, 저장할 때 원본을 따라가 기준 에셋을 찾는다

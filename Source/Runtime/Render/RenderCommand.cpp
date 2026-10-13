@@ -178,6 +178,12 @@ void RenderCommand::Unmap(FBuffer* InBuffer)
 
 void RenderCommand::BindShaderResource(uint32 Slot, FTexture2D* Texture2D, EShaderBindFlagBits FlagBits)
 {
+	if(!Texture2D)
+	{
+		UnbindShaderResource(Slot, FlagBits);
+		return;
+	}
+
 	ID3D11ShaderResourceView* SRV = Texture2D->GetSRV();
 	if (HasFlag(FlagBits, EShaderBindFlagBits::Vertex))
 	{
@@ -192,7 +198,8 @@ void RenderCommand::BindShaderResource(uint32 Slot, FTexture2D* Texture2D, EShad
 
 void RenderCommand::BindShaderResource(uint32 Slot, UTexture2D* Texture2D, EShaderBindFlagBits FlagBits)
 {
-	BindShaderResource(Slot, Texture2D->GetResource(), FlagBits);
+	FTexture2D* Resource = Texture2D ? Texture2D->GetResource() : nullptr;
+	BindShaderResource(Slot, Resource, FlagBits);
 }
 
 void RenderCommand::UnbindShaderResource(uint32 Slot, EShaderBindFlagBits FlagBits)
