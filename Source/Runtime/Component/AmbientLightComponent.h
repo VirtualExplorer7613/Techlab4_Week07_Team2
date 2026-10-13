@@ -9,6 +9,6 @@ class UAmbientLightComponent : public ULightComponent
 		REFLECT_END()
 
 public:
-	UAmbientLightComponent() = default;
+	UAmbientLightComponent();
 	virtual void InitializeComponent() override;
 };

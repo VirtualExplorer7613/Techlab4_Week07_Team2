@@ -236,7 +236,7 @@ void FViewportsPanel::OnRender()
 			ContentOrigin.y + Slots[ViewIndex].Rect.Y + 8.0f});
 		ImGui::PushID(100 + ViewIndex);
 		int SelectedPreset = static_cast<int>(CurrentCameraPresets[ViewIndex]);
-		ImGui::SetNextItemWidth(120.0f);
+		ImGui::SetNextItemWidth(170.0f);
 		if (ImGui::Combo("##CameraPreset", &SelectedPreset, CameraPresetLabels, IM_ARRAYSIZE(CameraPresetLabels)))
 		{
 			PendingCameraPresetViewIndex = ViewIndex;
@@ -247,7 +247,7 @@ void FViewportsPanel::OnRender()
         if (ViewportAdapter)
         {
 			int Mode = static_cast<int>(ViewportAdapter->GetViewMode(ViewIndex));
-            ImGui::SetNextItemWidth(110.0f);
+            ImGui::SetNextItemWidth(170.0f);
 			if (ImGui::Combo("##ViewMode", &Mode, ViewModeLabels, IM_ARRAYSIZE(ViewModeLabels)))
 			{
 				ViewportAdapter->SetViewMode(ViewIndex, static_cast<EViewMode>(Mode));

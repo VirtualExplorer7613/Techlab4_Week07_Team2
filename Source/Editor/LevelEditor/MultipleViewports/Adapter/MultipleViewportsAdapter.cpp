@@ -722,12 +722,9 @@ void FMultipleViewportsAdapter::BuildRenderQueue(const int32 ViewIndex, FRenderQ
                 ParticleComponent->SubmitParticleToRenderQueue(OutQueue, ParticleIndex, ParticleWorld, Delta.Dot(Delta));
             }
         }
-        else if (UBillboardComponent* Billboard = Cast<UBillboardComponent>(Primitive))
+        else if (Cast<UBillboardComponent>(Primitive))
         {
-            const FVector Scale = Billboard->GetWorldScale3D();
-            Billboard->SubmitToRenderQueue(
-                OutQueue,
-                BuildEngineBillboardMatrix(ViewIndex, Billboard->GetWorldLocation(), Scale.Y, Scale.Z));
+            // 빌보드는 렌더 큐에 넣지 않고 EditorEngine의 오버레이 패스에서 FBillboardRenderer가 그린다.
         }
         else if (auto* StaticComponent = Cast<UStaticMeshComponent>(Primitive))
         {

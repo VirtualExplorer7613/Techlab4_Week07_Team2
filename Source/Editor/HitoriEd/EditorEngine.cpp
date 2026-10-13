@@ -28,6 +28,7 @@
 #include "Editor/Outliner/OutlinerPanel.h"
 #include "Editor/HitoriEd/EditorFileUtils.h"
 #include "UObject/UObjectIterator.h"
+#include "Component/BillboardComponent.h"
 
 #include "Core/EngineLog.h"
 #include "Core/Stats/LightweightStats.h"
@@ -113,6 +114,9 @@ bool UEditorEngine::Init()
 
 	DepthViewRenderer = MakeUnique<FDepthViewRenderer>();
 	DepthViewRenderer->Init();
+
+	BillboardRenderer = MakeUnique<FBillboardRenderer>();
+	BillboardRenderer->Init();
 
 
 	// 필요한 Panel들 추가후 raw pointer 반환(소유권 = EditorUI)
@@ -644,20 +648,22 @@ void UEditorEngine::RenderOverlayPass(const int32 ViewIndex, UWorld& ViewWorld, 
 		}
 
 		// 선택된 액터가 라이트면 와이어프레임을 같이 쌓는다
-		// TODO : Visualizer 코드 이식하기
+		// TODO : Visualizer 코드 이식하기, 지금은 
 		if (Gizmo->GetTarget())
 		{
-			if (ASpotLight* LightActor = Cast<ASpotLight>(Gizmo->GetTarget()->GetOwner()))
+			AActor* Owner = Gizmo->GetTarget()->GetOwner();
+			Owner->FindComponentByName("USpotLightComponent");
+			if (USpotLightComponent* SpotlightComponent = Cast<USpotLightComponent>(Owner->FindComponentByName("USpotLightComponent")))
 			{
-				LightActor->GetSpotLightComponent()->DrawDebug(LineBatcher.get());
+				SpotlightComponent->DrawDebug(LineBatcher.get());
 			}
-			if (ADirectionalLight* DirectionalLightActor = Cast<ADirectionalLight>(Gizmo->GetTarget()->GetOwner()))
+			if (UDirectionalLightComponent* DirectionallightComponent = Cast<UDirectionalLightComponent>(Owner->FindComponentByName("UDirectionalLightComponent")))
 			{
-				DirectionalLightActor->GetDirctionalLightComponent()->DrawDebug(LineBatcher.get());
+				DirectionallightComponent->DrawDebug(LineBatcher.get());
 			}
-			if (APointLight* PointLightActor = Cast<APointLight>(Gizmo->GetTarget()->GetOwner()))
+			if (UPointLightComponent* PointlightComponent = Cast<UPointLightComponent>(Owner->FindComponentByName("UPointLightComponent")))
 			{
-				PointLightActor->GetPointLightComponent()->DrawDebug(LineBatcher.get());
+				PointlightComponent->DrawDebug(LineBatcher.get());
 			}
 		}
 
@@ -766,6 +772,20 @@ void UEditorEngine::RenderOverlayPass(const int32 ViewIndex, UWorld& ViewWorld, 
 			const FMatrix BillboardWorld = MultipleViewportsAdapter.BuildEngineBillboardMatrix(ViewIndex, UUIDLocation, 1.0f, 1.0f);
 			TextRenderer->OnRender(Text, BillboardWorld, 0.5f, *SystemFont, ViewProjection);
 		}
+	}
+
+	// 빌보드 표시. 렌더 큐를 거치지 않으므로 안개·FXAA가 적용되지 않는다.
+	BillboardRenderer->BeginRender(ViewProjection, ViewCameraLocation);
+	for (TObjectIterator<UBillboardComponent> BillboardComponent; BillboardComponent; ++BillboardComponent)
+	{
+		if (!BillboardComponent->IsVisible() || !IsInViewWorld(*BillboardComponent))
+			continue;
+
+		// 피킹과 같은 행렬을 써야 클릭 영역과 그려진 아이콘이 맞는다.
+		const FVector Scale = BillboardComponent->GetWorldScale3D();
+		const FMatrix BillboardWorld = MultipleViewportsAdapter.BuildEngineBillboardMatrix(
+			ViewIndex, BillboardComponent->GetWorldLocation(), Scale.Y, Scale.Z);
+		BillboardRenderer->OnRender(**BillboardComponent, BillboardWorld);
 	}
 
 	RenderCommand::EndRenderPass(PassInfo);
