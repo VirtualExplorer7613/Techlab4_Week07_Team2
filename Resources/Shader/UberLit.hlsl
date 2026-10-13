@@ -6,6 +6,9 @@
     #define LIGHTING_MODEL_PHONG 1
 #endif
 
+static const float PI = 3.14159265359f;
+static const float3 Ks = float3(0.04f, 0.04f, 0.04f);
+
 cbuffer Viewconstants : register(b0)
 {
     matrix VP;
@@ -65,6 +68,17 @@ cbuffer LightConstants : register(b3)
     uint2 LightPadding;
 };
 
+// ACES Filmic Tone Mapping
+float3 ACESFilmicToneMapping(float3 color)
+{
+    float a = 2.51f;
+    float b = 0.03f;
+    float c = 2.43f;
+    float d = 0.59f;
+    float e = 0.14f;
+    return saturate((color * (a * color + b)) / (color * (c * color + d) + e));
+}
+
 // 라이트 하나가 표면에 주는 빛. Diffuse는 Albedo와 곱하고 Specular는 그 뒤에 더한다.
 struct FLightResult
 {
@@ -79,12 +93,13 @@ FLightResult BlinnPhong(float3 N, float3 L, float3 V, float3 Radiance)
     FLightResult Result;
 
     float NdotL = saturate(dot(N, L));
-    Result.Diffuse = Radiance * NdotL;
-
+    float n = max(Shininess, 1.0f);
+    Result.Diffuse = Radiance * NdotL * 1/PI * (1.0f - Ks);
+    float norm = (n + 8.0f) / (8.0f * PI); // Blinn-Phong 정규화 상수
     float3 H = normalize(L + V);
     float NdotH = saturate(dot(N, H));
     // 빛을 받지 못하는 면(N·L <= 0)에는 하이라이트가 생기지 않게 한다.
-    Result.Specular = Radiance * pow(NdotH, max(Shininess, 1.0f)) * (NdotL > 0.0f ? 1.0f : 0.0f);
+    Result.Specular = Radiance * pow(NdotH, n) * norm * NdotL * Ks;
 
     return Result;
 }
@@ -233,6 +248,7 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
 {
     float4 texColor = g_txColor.Sample(g_Sample, input.uv + UVOffset);
     float4 albedo = texColor * BaseColor;
+    
 
     float3 normal = normalize(input.normal);
 
@@ -246,7 +262,7 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
     return float4(normal * 0.5f + 0.5f, 1.0f);   // -1~1 노멀을 0~1 색으로
 #endif
    
-
+    albedo.rgb = pow(albedo.rgb, 2.2f);
     float3 viewDir = normalize(CameraLocation - input.worldPos);   // 표면 → 카메라
     float3 ambient = CalculateAmbientLight(AmbientLight);
     
@@ -254,6 +270,8 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
     
 #if LIGHTING_MODEL_GOURAUD
     finalRGB = finalRGB * (ambient + input.Diffuse) + input.Specular;
+    finalRGB = ACESFilmicToneMapping(finalRGB);
+    finalRGB = pow(finalRGB, 1.0f / 2.2f);
     return float4(finalRGB, alpha);
 #endif
 
@@ -264,5 +282,7 @@ FLightResult Light = CalculateLighting(input.worldPos, normal, viewDir);
  #else
     finalRGB = finalRGB * (ambient + Light.Diffuse);
 #endif
+    finalRGB = ACESFilmicToneMapping(finalRGB);
+    finalRGB = pow(finalRGB, 1.0f / 2.2f);
     return float4(finalRGB, alpha);
 }
