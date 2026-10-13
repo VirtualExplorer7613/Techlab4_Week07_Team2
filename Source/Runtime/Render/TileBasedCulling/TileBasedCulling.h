@@ -3,12 +3,27 @@
 #include "Render/Buffer.h"
 #include <d3d11.h>
 
+struct FTileCullInputs
+{
+	ID3D11ShaderResourceView* DepthSRV = nullptr;
+	uint32 Width = 0;
+	uint32 Height = 0;
+
+	FMatrix View;
+	FMatrix Projection;
+
+	ID3D11ShaderResourceView* PointLightSRV = nullptr;
+	ID3D11ShaderResourceView* SpotLightSRV = nullptr;
+	uint32 PointLightCount = 0;
+	uint32 SpotLightCount = 0;
+};
+
 class FTileBasedCulling
 {
 public:
 	bool Init();
 
-	bool Run();
+	bool Run(const FTileCullInputs& Inputs);
 
 	ID3D11ShaderResourceView* GetTileHeaderSRV() const { return TileHeaderSRV.Get(); }
 	ID3D11ShaderResourceView* GetTileLightIndicesSRV() const { return TileLightIndicesSRV.Get(); }
@@ -16,7 +31,6 @@ public:
 private:
 	ComPtr<ID3D11ComputeShader> TileBasedCullingCS;
 
-	ComPtr<ID3D11Buffer> ViewCB;
 	ComPtr<ID3D11Buffer> TileBasedConstantsCB;
 
 	ComPtr<ID3D11Buffer> TileHeaderBuffer;

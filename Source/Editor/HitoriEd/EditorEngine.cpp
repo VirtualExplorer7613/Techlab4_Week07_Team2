@@ -571,10 +571,23 @@ void UEditorEngine::RenderDepthPrepass(const int32 ViewIndex, const FRenderingIn
 	RenderCommand::EndRenderPass(PassInfo);
 }
 
-void UEditorEngine::ComputeTileBasedLight()
+void UEditorEngine::ComputeTileBasedLight(const int32 ViewIndex, const FRenderingInfo& ViewRenderingInfo, const FMatrix& ViewProjection)
 {
-	FTileBasedCulling& TBC = Renderer->GetTileBasedCulling();
-	TBC.Run();
+	FTexture2D* Depth = ViewRenderingInfo.DepthStencil.Texture;
+	if (!Depth) return;
+
+	FTileCullInputs Inputs;
+	Inputs.DepthSRV = Depth->GetSRV();
+	Inputs.Width = Depth->GetWidth();
+	Inputs.Height = Depth->GetHeight();
+	Inputs.View = MultipleViewportsAdapter.GetEngineViewMatrix(ViewIndex);
+	Inputs.Projection = MultipleViewportsAdapter.GetEngineProjectionMatrix(ViewIndex);
+	Inputs.PointLightSRV = Renderer->GetPointLightSRV();
+	Inputs.SpotLightSRV = Renderer->GetSpotLightSRV();
+	Inputs.PointLightCount = Renderer->GetPointLightCount();
+	Inputs.SpotLightCount = Renderer->GetSpotLightCount();
+
+	Renderer->GetTileBasedCulling().Run(Inputs);
 }
 
 // 입력 View의 Ray와 피킹으로 Gizmo·공유 선택을 갱신한다.
@@ -932,7 +945,7 @@ void UEditorEngine::RenderFrame(const int32 ViewIndex, UWorld& ViewWorld, const 
 
 	if (bTileCull)
 	{
-		ComputeTileBasedLight();
+		ComputeTileBasedLight(ViewIndex, ViewRenderingInfo, ViewProjection);
 	}
 
 	// 1. 불투명 Pass

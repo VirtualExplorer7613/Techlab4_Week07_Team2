@@ -148,25 +148,59 @@ bool FTileBasedCulling::Init()
 {
 	ID3D11Device* Device = RenderCommand::GetDevice();
 
-	TileBasedCullingCS = CompileComputeShader(Device, "BuildHiZ");
+	TileBasedCullingCS = CompileComputeShader(Device, "TileCullCS");
 	TileBasedConstantsCB = CreateDefaultConstantBuffer(Device, sizeof(FTileCullConstants));
-	ViewCB = CreateDefaultConstantBuffer(Device, sizeof(FViewConstants));
 
-	const bool bReady = TileBasedCullingCS && TileBasedConstantsCB && ViewCB &&
-		RenderCommand::SupportsConstantBufferOffsets();
+	const bool bReady = TileBasedCullingCS && TileBasedConstantsCB;
 	if (!bReady)
-		HTR_LOG(Error, "[GPUOcclusion] init failed. GPU occlusion culling is unavailable.");
+		HTR_LOG(Error, "[TileBasedCulling] init failed. GPU occlusion culling is unavailable.");
 	return bReady;
 }
 
-bool FTileBasedCulling::Run()
+bool FTileBasedCulling::Run(const FTileCullInputs& Inputs)
 {
-    return false;
+	if (!TileBasedCullingCS || !Inputs.DepthSRV || Inputs.Width == 0 || Inputs.Height == 0) return false;
 
+	// 타일 수 -> 결과 버퍼 확보
+	const uint32 TileCountX = (Inputs.Width + TileSize - 1) / TileSize;
+	const uint32 TileCountY = (Inputs.Height + TileSize - 1) / TileSize;
+	if (!EnsureTileCapacity(TileCountX * TileCountY))
+		return false;
 
-	//상수버퍼 바인딩
-	//읽을 구조화된 버퍼 바인딩
-	//Write할 구조화된 버퍼 바인딩
+	// 상수 채우기 -> 버퍼 갱신
+	FTileCullConstants Constants{};
+	Constants.View = Inputs.View;
+	Constants.InvProjection = Inputs.Projection.Inverse();
+	Constants.TileCount[0] = TileCountX;
+	Constants.TileCount[1] = TileCountY;
+	Constants.ScreenSize[0] = Inputs.Width;
+	Constants.ScreenSize[1] = Inputs.Height;
+	Constants.TilePointLightCount = Inputs.PointLightCount;
+	Constants.TileSpotLightCount = Inputs.SpotLightCount;
+
+	ID3D11DeviceContext* Context = RenderCommand::GetContext();
+	Context->UpdateSubresource(TileBasedConstantsCB.Get(), 0, nullptr, &Constants, 0, 0);
+
+	// 바인딩
+	ID3D11Buffer* ConstBuffers[1] = { TileBasedConstantsCB.Get() };
+	ID3D11ShaderResourceView* SRVs[3] = { Inputs.PointLightSRV, Inputs.SpotLightSRV, Inputs.DepthSRV };
+	ID3D11UnorderedAccessView* UAVs[2] = { TileHeaderUAV.Get(), TileLightIndicesUAV.Get() };
+	Context->CSSetConstantBuffers(0, 1, ConstBuffers);
+	Context->CSSetShaderResources(0, 3, SRVs);
+	Context->CSSetUnorderedAccessViews(0, 2, UAVs, nullptr);
+	Context->CSSetShader(TileBasedCullingCS.Get(), nullptr, 0);
+
+	// 실행
+	Context->Dispatch(TileCountX, TileCountY, 1);
+
+	// 해제
+	ID3D11ShaderResourceView* NullSRVs[3] = {};
+	ID3D11UnorderedAccessView* NullUAVs[2] = {};
+	Context->CSSetShaderResources(0, 3, NullSRVs);
+	Context->CSSetUnorderedAccessViews(0, 2, NullUAVs, nullptr);
+	Context->CSSetShader(nullptr, nullptr, 0);
+
+	return true;
 }
 
 bool FTileBasedCulling::EnsureTileCapacity(uint32 TileCount)
