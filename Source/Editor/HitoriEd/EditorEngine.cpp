@@ -551,10 +551,34 @@ FWorldContext* UEditorEngine::GetPIEWorldContext(int32 WorldPIEInstance)
 	return nullptr;
 }
 
-// 입력 View의 Ray와 피킹으로 Gizmo·공유 선택을 갱신한다.
-void UEditorEngine::RenderOpaquePass(const int32 ViewIndex, const FRenderingInfo& ViewRenderingInfo, const FMatrix& ViewProjection, const FVector& ViewCameraLocation, const FVector& ViewCameraForward, FRenderQueue& RenderQueue)
+void UEditorEngine::RenderDepthPrepass(const int32 ViewIndex, const FRenderingInfo& ViewRenderingInfo, const FMatrix& ViewProjection)
 {
-	RenderCommand::BeginRenderPass(ViewRenderingInfo);
+	//이 패스에선 RT를 쓰지 않는다.
+	FRenderingInfo PassInfo = ViewRenderingInfo;
+	PassInfo.ColorRenderTargets.Reset();
+	PassInfo.DepthStencil.LoadOp = ERenderTargetLoadOp::Clear;
+
+	RenderCommand::BeginRenderPass(PassInfo);
+
+	EViewMode ViewMode = MultipleViewportsAdapter.GetViewMode(ViewIndex);
+
+	RenderCommand::SetRasterizerState(ERasterizerState::SolidBack);
+	RenderCommand::SetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	Renderer->DepthPrepass(ViewProjection, ViewMode);
+	RenderCommand::SetRasterizerState(ERasterizerState::SolidBack);
+
+	RenderCommand::EndRenderPass(PassInfo);
+}
+
+// 입력 View의 Ray와 피킹으로 Gizmo·공유 선택을 갱신한다.
+void UEditorEngine::RenderOpaquePass(const int32 ViewIndex, const FRenderingInfo& ViewRenderingInfo, const FMatrix& ViewProjection, const FVector& ViewCameraLocation, const FVector& ViewCameraForward, bool bPrepass)
+{
+	FRenderingInfo PassInfo = ViewRenderingInfo;
+	if (bPrepass)
+		PassInfo.DepthStencil.LoadOp = ERenderTargetLoadOp::Load;   // 프리패스 깊이 유지
+
+	RenderCommand::BeginRenderPass(PassInfo);
 
 	const bool bDrawPrimitives = SettingsPanel->GetSettings().bDrawPrimitives;
 	// 삼각형 연결은 유지하고 View별 Fill Mode만 선택한다.
@@ -570,11 +594,11 @@ void UEditorEngine::RenderOpaquePass(const int32 ViewIndex, const FRenderingInfo
 		RenderCommand::SetRasterizerState(SceneRasterizerState);
 		RenderCommand::SetBlendState(EBlendState::Opaque);
 		RenderCommand::SetDepthStencilState(EDepthStencilState::Default);
-
 		RenderCommand::SetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
 		// 반투명은 Grid 뒤에 합성되어야 하므로 불투명만 먼저 그린다.
-		Renderer->RenderQueueSorting(RenderQueue, ViewProjection, ViewCameraLocation);
-		Renderer->RenderOpaque(ViewProjection, ViewMode);
+		Renderer->RenderOpaque(ViewProjection, ViewMode, bPrepass);
+
 		// 장면 Wireframe이 Grid·Gizmo·UI로 전파되지 않도록 복원한다.
 		RenderCommand::SetRasterizerState(ERasterizerState::SolidBack);
 	}
@@ -592,7 +616,7 @@ void UEditorEngine::RenderOpaquePass(const int32 ViewIndex, const FRenderingInfo
 
 
 
-	RenderCommand::EndRenderPass(ViewRenderingInfo);
+	RenderCommand::EndRenderPass(PassInfo);
 }
 
 void UEditorEngine::RenderFogPass(const int32 ViewIndex, UWorld& ViewWorld, const FRenderingInfo& ViewRenderingInfo, const FVector& ViewCameraLocation, const FMatrix& ViewProjection, FRenderQueue& RenderQueue)
@@ -886,13 +910,33 @@ void UEditorEngine::UpdateGizmoAndPicking()
 // View 행렬로 Scene·Grid·Gizmo·텍스트·Outline을 렌더한다.
 void UEditorEngine::RenderFrame(const int32 ViewIndex, UWorld& ViewWorld, const FRenderingInfo& ViewRenderingInfo, const FMatrix& ViewProjection, const FVector& ViewCameraLocation, const FVector& ViewCameraForward, FRenderQueue& RenderQueue)
 {
+	const FEditorSettings& Settings = SettingsPanel->GetSettings();
+	const EViewMode ViewMode = MultipleViewportsAdapter.GetViewMode(ViewIndex);
+	const bool bPrepass = Settings.bDrawPrimitives && Settings.bTileBasedLightCulling && ViewMode != EViewMode::Wireframe; //depth prepass를 할 것인가
+	const bool bTileCull = bPrepass && IsPerPixelLit(ViewMode); //라이트 컬링을 할 것인가
+
+	//0. 정렬
+	if (Settings.bDrawPrimitives)
+		Renderer->RenderQueueSorting(RenderQueue, ViewProjection, ViewCameraLocation);
+
+	if (bPrepass)
+	{
+		//depth prepass...
+		RenderDepthPrepass(ViewIndex, ViewRenderingInfo, ViewProjection);   // DSV Clear, 색 RT 없음, 
+	}
+
+	if (bTileCull)
+	{
+		//Compute Shader...
+	}
+
 	// 1. 불투명 Pass
-	RenderOpaquePass(ViewIndex, ViewRenderingInfo, ViewProjection, ViewCameraLocation, ViewCameraForward, RenderQueue);
+	RenderOpaquePass(ViewIndex, ViewRenderingInfo, ViewProjection, ViewCameraLocation, ViewCameraForward, bPrepass);
+	
 
 	if (SettingsPanel->GetSettings().bDepthView)
 	{
 		RenderDepthPass(ViewIndex, ViewRenderingInfo, ViewProjection, ViewCameraLocation, ViewCameraForward);
-
 
 	}
 	else

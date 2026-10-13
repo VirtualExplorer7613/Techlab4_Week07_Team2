@@ -70,6 +70,14 @@ bool FRenderer::Init()
 	return true;
 }
 
+void FRenderer::DepthPrepass(const FMatrix& ViewProjection, const EViewMode ViewMode)
+{
+	bDepthOnly = true;
+	DrawStaticGroups(ViewMode);
+	DrawPackets(0, FirstTranslucentIndex, ViewProjection, ViewMode);
+	bDepthOnly = false;
+}
+
 // 필요한 칸 수가 용량을 넘을 때만 두 배씩 키워 재할당을 드물게 한다.
 void FRenderer::EnsurePerObjectSlotCapacity(uint32 SlotCount)
 {
@@ -140,12 +148,14 @@ void FRenderer::RenderAll(FRenderQueue& InQueue, const FMatrix& ViewProjection, 
 	RenderTranslucent(ViewProjection, ViewMode);
 }
 
-void FRenderer::RenderOpaque(const FMatrix& ViewProjection, const EViewMode ViewMode)
+void FRenderer::RenderOpaque(const FMatrix& ViewProjection, const EViewMode ViewMode, bool bDepthPrepassed)
 {
 	RenderCommand::BindConstantBuffer(3, LightCB.get(), EShaderBindFlagBits::Pixel | EShaderBindFlagBits::Vertex);
 
+	this->bDepthPrepassed = bDepthPrepassed;
 	DrawStaticGroups(ViewMode);
 	DrawPackets(0, FirstTranslucentIndex, ViewProjection, ViewMode);
+	this->bDepthPrepassed = false;
 }
 
 // RenderOpaque가 남긴 반투명 패킷을 먼 것부터 그린다.
@@ -263,11 +273,13 @@ void FRenderer::DrawPackets(uint32 Begin, uint32 End, const FMatrix& ViewProject
 		if (RenderPacket.Mesh != LastMesh || RenderPacket.LODIndex != LastLODIndex) {
 			RenderCommand::BindMesh(RenderPacket.Mesh, RenderPacket.LODIndex);
 		}
-		if (RenderPacket.Material != LastMaterial) {
+
+		if (RenderPacket.Material != LastMaterial)
 			BindMaterial(RenderPacket.Material, ViewMode);
-		}
+			
 		if (RenderPacket.Material != LastMaterial || RenderPacket.MaterialParamData)
 			UpdateMaterialParams(RenderPacket);
+
 		if (bUsePerObjectSlots && RenderPacket.Slot != InvalidObjectSlot)
 		{
 			RenderCommand::BindConstantBufferRange(2, PerObjectSlotCB.get(), RenderPacket.Slot * PerObjectSlotConstants, PerObjectSlotConstants, EShaderBindFlagBits::Vertex);
@@ -366,6 +378,8 @@ FOcclusionMeasureResult FRenderer::MeasureOpaqueOcclusion(const FMatrix& ViewPro
 
 		if (Draw.Mesh != BoundMesh || Draw.LODIndex != BoundLOD)
 			RenderCommand::BindMesh(Draw.Mesh, Draw.LODIndex);
+
+
 		if (Draw.Material != BoundMaterial)
 		{
 			BindMaterial(Draw.Material, ViewMode);
@@ -473,11 +487,27 @@ void FRenderer::BindMaterial(UMaterial* material, const EViewMode ViewMode)
 	}
 
 	RenderCommand::BindShaderProgram(Shader);
+
+	//Depth Prepass인 경우, Pixel Shader을 nullptr로, DepthStencilState를 Default로 한다.
+	//그 뒤의 머테리얼 설정은 깊이 프리패스에 필요 없으므로 건너뛴다.
+	if (bDepthOnly)
+	{
+		RenderCommand::GetContext()->PSSetShader(nullptr, nullptr, 0); // PS 없이 깊이만
+		RenderCommand::SetDepthStencilState(EDepthStencilState::Default); // LESS + Write
+		return;
+	}
+
 	RenderCommand::SetBlendState(material->BlendState);
-	// 반투명은 뒤에 그려지는 Grid·다른 반투명을 가리지 않도록 깊이를 쓰지 않는다.
+
+	// Opaque 패스에서 Depth Prepass가 실행되었다면, 기존 깊이값이 버려지지 않기 위해 LessEqualReadOnly로 변경한다.
 	const bool bTranslucent = material->BlendState != EBlendState::Opaque;
-	RenderCommand::SetDepthStencilState(bTranslucent && material->DepthStencilState == EDepthStencilState::Default
-		? EDepthStencilState::ReadOnly : material->DepthStencilState);
+	if (!bTranslucent && bDepthPrepassed)
+		RenderCommand::SetDepthStencilState(EDepthStencilState::LessEqualReadOnly);
+
+	// 반투명은 뒤에 그려지는 Grid·다른 반투명을 가리지 않도록 깊이를 쓰지 않는다.
+	else
+		RenderCommand::SetDepthStencilState(bTranslucent && material->DepthStencilState == EDepthStencilState::Default
+        ? EDepthStencilState::ReadOnly : material->DepthStencilState);
 
 	for (int i = 0; i < material->Textures.size(); i++)
 	{

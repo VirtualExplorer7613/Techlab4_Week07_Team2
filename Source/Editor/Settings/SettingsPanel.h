@@ -21,6 +21,7 @@ struct FEditorSettings
 	bool bDrawPSGrid = false;
 	bool bEnableFXAA = true;
 	bool bDepthView = false;
+	bool bTileBasedLightCulling = false;
 	bool bExponentialHeightFog = true;
 
 	// Values

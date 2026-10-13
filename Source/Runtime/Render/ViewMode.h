@@ -14,6 +14,13 @@ enum class EViewMode : uint8
     MAX
 };
 
+//픽셀 셰이더에 라이팅 연산이 있는가? (타일 베이스 라이트 컬링에 사용
+inline constexpr bool IsPerPixelLit(EViewMode ViewMode)
+{
+    return  ViewMode == EViewMode::Lit_Lambert
+            || ViewMode == EViewMode::Lit_Phong;
+}
+
 // 뷰포트 콤보에 표시할 이름. EViewMode와 같은 순서다.
 inline constexpr const char* ViewModeLabels[] =
 {

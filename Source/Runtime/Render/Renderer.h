@@ -92,6 +92,8 @@ class FRenderer
 public:
 	bool Init();
 
+	void DepthPrepass(const FMatrix& ViewProjection, const EViewMode ViewMode);
+
 	// 기존 단일 카메라의 ViewProjection으로 렌더 큐 전체를 그린다.
 	void RenderAll(FRenderQueue& InQueue, UCameraComponent* CameraComponent, const EViewMode ViewMode);
 
@@ -99,7 +101,7 @@ public:
 	void RenderAll(FRenderQueue& InQueue, const FMatrix& ViewProjection, const FVector CameraLocation, const EViewMode ViewMode);
 
 	// 큐를 정렬해 불투명 패킷만 그린다. 반투명은 RenderTranslucent 호출 전까지 보관한다.
-	void RenderOpaque(const FMatrix& ViewProjection, const EViewMode ViewMode);
+	void RenderOpaque(const FMatrix& ViewProjection, const EViewMode ViewMode, bool bDepthPrepassed = false);
 
 	// Gather 전에 World가 불러 가려진 물체를 거른다.
 	FGPUOcclusion& GetGPUOcclusion() { return GPUOcclusion; }
@@ -181,4 +183,10 @@ private:
 
 	TUniquePtr<FConstantBuffer> LightCB;
 	FLightConstants LightData{};
+
+	//DepthPrepass 시 잠깐 켜짐, 머테리얼 바인딩을 건너뜀
+	bool bDepthOnly = false;
+
+	//DepthPrepass가 이전에 실행되었다면 true, Opaque pass에서만 사용됨
+	bool bDepthPrepassed = false;
 };
