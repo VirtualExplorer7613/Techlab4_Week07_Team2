@@ -31,7 +31,8 @@ public:
 
 	int32 SelectedIndex = 0;
 
-	const char* Items[7] ={"Actor", "StaticMesh","Particle","Text","Light","ExponentialHeightFog", "FireBall"};
+	// Classes와 순서·개수가 같아야 한다.
+	const char* Items[10] ={"Actor", "StaticMesh","Particle","Text","AmbientLight","DirectionalLight","PointLight","SpotLight","ExponentialHeightFog", "FireBall"};
 
 	FGizmo* Gizmo = nullptr;
 	int32 GizmoSelectedIndex = 0;
