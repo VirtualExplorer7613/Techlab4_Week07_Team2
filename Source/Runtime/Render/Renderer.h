@@ -55,6 +55,7 @@ struct alignas(16) FPointLight
 	FVector4 ColorIntensity = FVector4(0, 0, 0, 0); // rgb: 색상, w: 강도
 	FVector4 FalloffEnabled = FVector4(1, 0, 0, 0); // x: 반경 감쇠, y: 사용 여부, zw: 패딩
 };
+static_assert(sizeof(FPointLight) == 48, "FPointLight must be 48 bytes");
 
 struct alignas(16) FSpotLight
 {
@@ -64,6 +65,7 @@ struct alignas(16) FSpotLight
 	FVector4 OutAngleInvCosDiff = FVector4(0, 0, 0, 0);// x : cosOuter, y : 1 / (cosInner - cosOuter)
 	FVector4 ForwardVector = FVector4(1, 0, 0, 0);		// xyz : 전방벡터
 };
+static_assert(sizeof(FSpotLight) == 80, "FSpotLight must be 80 bytes");
 
 struct alignas(16) FAmbientLight
 {
@@ -146,6 +148,13 @@ public:
 		std::memcpy(SlotBase + size_t(SlotIndex) * ObjectSlotBytes, &Constants, sizeof(Constants));
 	}
 
+	ID3D11ShaderResourceView* GetPointLightSRV() const { return PointLightSRV.Get(); }
+	ID3D11ShaderResourceView* GetSpotLightSRV() const { return SpotLightSRV.Get(); }
+
+	uint32 GetPointLightCount() const { return LightData.PointLightCount; }
+	uint32 GetSpotLightCount() const { return LightData.SpotLightCount; }
+	
+
 private:
 	// FIFO 소비용 배열의 용량만 재사용하며 매 View의 패킷 값은 새로 채운다.
 	FRenderQueue RenderPackets;
@@ -186,6 +195,12 @@ private:
 
 	TUniquePtr<FConstantBuffer> LightCB;
 	FLightConstants LightData{};
+
+	//CS, PS가 읽는 동적 StructuredBuffer
+	ComPtr<ID3D11Buffer> PointLightBuffer;
+	ComPtr<ID3D11ShaderResourceView> PointLightSRV;
+	ComPtr<ID3D11Buffer> SpotLightBuffer;
+	ComPtr<ID3D11ShaderResourceView> SpotLightSRV;
 
 	//DepthPrepass 시 잠깐 켜짐, 머테리얼 바인딩을 건너뜀
 	bool bDepthOnly = false;

@@ -56,6 +56,41 @@ namespace
 			| (static_cast<uint64>(Group.Mesh->SortID) << 31)
 			| (static_cast<uint64>(Group.LODIndex & 0x3) << 29);
 	}
+
+	bool CreateDynamicStructuredBuffer(uint32 Stride, uint32 Count, ComPtr<ID3D11Buffer>& OutBuffer, ComPtr<ID3D11ShaderResourceView>& OutSRV)
+	{
+		ID3D11Device* Device = RenderCommand::GetDevice();
+
+		D3D11_BUFFER_DESC Desc{};
+		Desc.ByteWidth = Stride * Count;
+		Desc.Usage = D3D11_USAGE_DYNAMIC;
+		Desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+		Desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		Desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+		Desc.StructureByteStride = Stride;
+
+		D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc{};
+		SRVDesc.Format = DXGI_FORMAT_UNKNOWN;
+		SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+		SRVDesc.Buffer.NumElements = Count;
+
+		if (FAILED(Device->CreateBuffer(&Desc, nullptr, OutBuffer.GetAddressOf())) || FAILED(Device->CreateShaderResourceView(OutBuffer.Get(), &SRVDesc, OutSRV.GetAddressOf())))
+			return false;
+
+		return true;
+	}
+
+	void UploadDynamicBuffer(ID3D11Buffer* Buffer, const void* Data, uint32 Size)
+	{
+		if (!Buffer) return;
+		D3D11_MAPPED_SUBRESOURCE MappedResource{};
+		ID3D11DeviceContext* Context = RenderCommand::GetContext();
+		if (SUCCEEDED(Context->Map(Buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedResource)))
+		{
+			std::memcpy(MappedResource.pData, Data, Size);
+			Context->Unmap(Buffer, 0);
+		}
+	}
 }
 
 bool FRenderer::Init()
@@ -64,7 +99,10 @@ bool FRenderer::Init()
 	PerObjectCB = RenderCommand::CreateConstantBuffer(sizeof(FPerObjectConstants));
 	ViewCB = RenderCommand::CreateConstantBuffer(sizeof(FViewConstants));
 	LightCB = RenderCommand::CreateConstantBuffer(sizeof(FLightConstants));
-
+	if (!CreateDynamicStructuredBuffer(sizeof(FPointLight), NUM_POINT_LIGHT, PointLightBuffer, PointLightSRV) || !CreateDynamicStructuredBuffer(sizeof(FSpotLight), NUM_SPOT_LIGHT, SpotLightBuffer, SpotLightSRV))
+	{
+		HTR_LOG(Error, "[Renderer] Failed to create dynamic structured buffers for lights.");
+	}
 	GPUOcclusion.Init();   // 실패해도 오클루전만 못 쓸 뿐 렌더링은 된다
 	TileBasedCulling.Init();
 
@@ -586,4 +624,6 @@ void FRenderer::SetLight(const FLightConstants& InLightData)
 {
 	LightData = InLightData;
 	RenderCommand::UpdateBufferData(LightCB.get(), &LightData, sizeof(FLightConstants));
+	UploadDynamicBuffer(PointLightBuffer.Get(), LightData.PointLights, sizeof(FPointLight) * LightData.PointLightCount);
+	UploadDynamicBuffer(SpotLightBuffer.Get(), LightData.SpotLights, sizeof(FSpotLight) * LightData.SpotLightCount);
 }
