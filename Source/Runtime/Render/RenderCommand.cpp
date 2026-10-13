@@ -145,6 +145,8 @@ void RenderCommand::BindConstantBuffer(uint32 Slot, FConstantBuffer* ConstantBuf
 		RenderDevice->GetContext()->VSSetConstantBuffers(Slot, 1, &Buffer);
 	if (HasFlag(FlagBits, EShaderBindFlagBits::Pixel))
 		RenderDevice->GetContext()->PSSetConstantBuffers(Slot, 1, &Buffer);
+	if (HasFlag(FlagBits, EShaderBindFlagBits::Compute))
+		RenderDevice->GetContext()->CSSetConstantBuffers(Slot, 1, &Buffer);
 
 }
 
