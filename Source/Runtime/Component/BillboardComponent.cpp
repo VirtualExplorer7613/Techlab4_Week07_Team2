@@ -51,15 +51,16 @@ bool UBillboardComponent::LineTraceComponentForView(
 // 기본 카메라용 행렬을 구해 공통 렌더 패킷 제출 경로로 전달한다.
 void UBillboardComponent::SubmitToRenderQueue(FRenderQueue& RenderQueue)
 {
-	// 렌더러가 역참조하므로 둘 중 하나라도 없으면 보내지 않는다
-	if (QuadMesh == nullptr || Material == nullptr)
-	{
-		return;
-	}
 
-	FMatrix BillboardWorldMatrix;
-	GetWorldTransformedMatrix(&BillboardWorldMatrix);
-	SubmitToRenderQueue(RenderQueue, BillboardWorldMatrix);
+	//// 렌더러가 역참조하므로 둘 중 하나라도 없으면 보내지 않는다
+	//if (QuadMesh == nullptr || Material == nullptr)
+	//{
+	//	return;
+	//}
+
+	//FMatrix BillboardWorldMatrix;
+	//GetWorldTransformedMatrix(&BillboardWorldMatrix);
+	//SubmitToRenderQueue(RenderQueue, BillboardWorldMatrix); 
 }
 
 // View별 Billboard 행렬과 Material을 렌더 패킷에 담는다.

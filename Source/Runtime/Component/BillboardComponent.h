@@ -24,6 +24,8 @@ public:
 	virtual UMaterial* GetMaterial(int32 SlotIndex) const override { return SlotIndex == 0 ? Material : nullptr; }
 	virtual void SetMaterial(int32 SlotIndex, UMaterial* InMaterial) override { if (SlotIndex == 0) Material = InMaterial; }
 	void SetTint(const FVector4& InTint) { BillboardParams.Tint = InTint; }
+	const FBillboardMaterialParams& GetBillboardParams() const { return BillboardParams; }
+	UStaticMesh* GetQuadMesh() const { return QuadMesh; }
 
 	virtual const FStaticMeshData* GetMeshData() const override { return QuadMesh ? &QuadMesh->GetMeshData() : nullptr; }
 

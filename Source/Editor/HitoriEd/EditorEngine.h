@@ -14,6 +14,7 @@
 #include "Render/FogRenderer.h"
 #include "Render/FXAARenderer.h"
 #include "Render/DepthViewRenderer.h"
+#include "Render/BillboardRenderer.h"
 
 
 #include "Editor/EditorUI/EditorUI.h"
@@ -141,6 +142,7 @@ private:
 	TUniquePtr<FSkyboxRenderer> SkyboxRenderer;
 	TUniquePtr<FFXAARenderer> FXAARenderer;
 	TUniquePtr<FDepthViewRenderer> DepthViewRenderer;
+	TUniquePtr<FBillboardRenderer> BillboardRenderer;
 
 	UFont* SystemFont;
 
