@@ -21,7 +21,7 @@ static_assert(std::is_trivially_copyable_v<FLODSourceVertex>);
 namespace
 {
 	// FStaticMeshData, FVertexPNCT, FStaticMeshSection, FStaticMaterialSlot 구조가 바뀌면 올린다
-	constexpr uint32 BakeVersion = 4;
+	constexpr uint32 BakeVersion = 5;
 
 	struct FBakeHeader
 	{
@@ -137,7 +137,8 @@ TUniquePtr<FStaticMeshData> FStaticMeshBake::ReadBaked(const FString& BinPath)
 		FStaticMaterialSlot Slot;
 		if (!ReadString(In, Slot.Name) ||
 			!ReadPod<FVector4>(In, Slot.BaseColor) ||
-			!ReadString(In, Slot.DiffuseTexturePath))
+			!ReadString(In, Slot.DiffuseTexturePath) ||
+			!ReadString(In, Slot.NormalTexturePath))
 		{
 			return nullptr;
 		}
@@ -184,6 +185,7 @@ void FStaticMeshBake::WriteBaked(const FString& BinPath, const FStaticMeshData& 
 		WriteString(Out, Slot.Name);
 		WritePod<FVector4>(Out, Slot.BaseColor);
 		WriteString(Out, Slot.DiffuseTexturePath);
+		WriteString(Out, Slot.NormalTexturePath);
 	}
 
 	// AABB
