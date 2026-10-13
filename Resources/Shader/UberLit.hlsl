@@ -205,6 +205,7 @@ struct VS_INPUT
     float3 n : NORMAL;
     float4 c : COLOR; // Input color from vertex buffer
     float2 t : TEXCOORD;
+    float4 tan : TANGENT;
 };
 
 struct PS_INPUT
@@ -214,6 +215,7 @@ struct PS_INPUT
     float4 color : COLOR;
     float2 uv : TEXCOORD0;
     float3 worldPos : TEXCOORD1;
+    float4 tangent : TANGENT;
 #if LIGHTING_MODEL_GOURAUD
     float3 Diffuse : TEXCOORD2;
     float3 Specular : TEXCOORD3;
@@ -221,7 +223,28 @@ struct PS_INPUT
 };
 
 Texture2D g_txColor : register(t0);
+Texture2D g_txNormal : register(t1);
 SamplerState g_Sample : register(s0);
+
+// 노멀맵 적용함수
+float3 ApplyNormalMap(float3 vertexNormal, float4 tangent, float2 uv)
+{
+    float3 N = normalize(vertexNormal);
+    
+    float3 T = tangent.xyz - N * dot(N, tangent.xyz);
+    float lengthSq = dot(T, T);
+    if (lengthSq < 1e-8f)
+    {
+        return N;
+    }
+    T *= rsqrt(lengthSq);
+    
+    float3 B = cross(N, T) * tangent.w;
+    
+    float3 tangentNormal = g_txNormal.Sample(g_Sample, uv).xyz * 2.0f - 1.0f;
+    
+    return normalize(tangentNormal.x * T + tangentNormal.y * B + tangentNormal.z * N);    
+}
 
 PS_INPUT mainVS(VS_INPUT input)
 {
@@ -232,6 +255,8 @@ PS_INPUT mainVS(VS_INPUT input)
 
     // 비균등 스케일에서도 올바른 노멀값을 구하기 위해 역전치행렬 사용
     output.normal = normalize(mul(float4(input.n, 0.0f), WorldInvTranspose).xyz);
+    
+    output.tangent = float4(mul(float4(input.tan.xyz, 0.0f), World).xyz, input.tan.w);
     
 #if LIGHTING_MODEL_GOURAUD
     float3 viewDir = normalize(CameraLocation - output.worldPos);
@@ -250,7 +275,7 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
     float4 albedo = texColor * BaseColor;
     
 
-    float3 normal = normalize(input.normal);
+    float3 normal = ApplyNormalMap(input.normal, input.tangent, input.uv + UVOffset);
 
     // Opaque는 알파를 1로 고정한다. 뷰포트 RT를 ImGui가 알파 블렌딩으로 그리므로 알파가 남으면 비쳐 보인다
     float alpha = bOpaque > 0.5f ? 1.0f : albedo.a;
