@@ -1157,6 +1157,8 @@ namespace
 
         Out.AABB = { Min, Max };
 
+        Out.ComputeTangents();
+
         // LOD1~3을 다시 단순화하지 않는다.
         // 다음 Generate 호출도 항상 LOD0에서 시작한다.
         return Out;

@@ -13,6 +13,8 @@
 
 #include "Camera/CameraComponent.h"
 
+#include "Asset/AssetManager.h"
+
 #include <algorithm>
 #include <chrono>
 #include <unordered_map>
@@ -481,8 +483,23 @@ void FRenderer::BindMaterial(UMaterial* material, const EViewMode ViewMode)
 
 	for (int i = 0; i < material->Textures.size(); i++)
 	{
-		RenderCommand::BindShaderResource(i, material->Textures[i], EShaderBindFlagBits::Pixel);
+		if (material->Textures[i])
+		{
+			RenderCommand::BindShaderResource(i, material->Textures[i], EShaderBindFlagBits::Pixel);
+		}
 	}
+
+	// 노멀맵이 없는 머터리얼을 위해 기본으로 생성한 노말맵을 bind 한다. 
+	if (material->ParamLayout == EMaterialParamLayout::StaticMesh &&
+		(material->Textures.Num() < 2 || material->Textures[1] == nullptr))
+	{
+		static UTexture2D* FlatNormalTexture = UAssetManager::GetAssetByPath<UTexture2D>("FlatNormalTexture");
+		if (FlatNormalTexture)
+		{
+			RenderCommand::BindShaderResource(1, FlatNormalTexture, EShaderBindFlagBits::Pixel);
+		}
+	}
+
 	RenderCommand::BindSamplerState(0, material->SamplerState, EShaderBindFlagBits::Pixel);
 }
 

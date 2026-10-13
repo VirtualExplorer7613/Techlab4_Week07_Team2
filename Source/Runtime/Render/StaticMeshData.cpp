@@ -81,6 +81,75 @@ bool FStaticMeshData::Validate(FString& OutError) const
 	return true;
 }
 
+// 삼각형의 위치와 uv로 정점 탄젠트를 계산.
+void FStaticMeshData::ComputeTangents()
+{
+	const uint32 VertexCount = static_cast<uint32>(Vertices.Num());
+	const uint32 IndexCount = static_cast<uint32>(Indices.Num());
+
+	TArray<FVector> TangentSums;
+	TArray<FVector> BitangentSums;
+
+	TangentSums.Init(FVector::ZeroVector, VertexCount);
+	BitangentSums.Init(FVector::ZeroVector, VertexCount);
+
+	for (uint32 i = 0; i + 2 < IndexCount; i += 3)
+	{
+		const uint32 Index0 = Indices[i];
+		const uint32 Index1 = Indices[i + 1];
+		const uint32 Index2 = Indices[i + 2];
+
+		const FVertexPNCT& V0 = Vertices[Index0];
+		const FVertexPNCT& V1 = Vertices[Index1];
+		const FVertexPNCT& V2 = Vertices[Index2];
+
+		const FVector Edge1 = V1.Position - V0.Position;
+		const FVector Edge2 = V2.Position - V0.Position;
+
+		const FVector2 DeltaUV1 = V1.UV - V0.UV;
+		const FVector2 DeltaUV2 = V2.UV - V0.UV;
+
+		// 면적이 0인 삼각형에 대해서 방향을 정할 수 없음. 
+		const float Det = DeltaUV1.X * DeltaUV2.Y - DeltaUV2.X * DeltaUV1.Y;
+		if (abs(Det) < 1e-12f)
+		{
+			continue;
+		}
+
+		const float InvDet = 1.0f / Det;
+		const FVector Tangent = (Edge1 * DeltaUV2.Y - Edge2 * DeltaUV1.Y) * InvDet;
+		const FVector Bitangent = (Edge2 * DeltaUV1.X - Edge1 * DeltaUV2.X) * InvDet;
+
+		TangentSums[Index0] += Tangent;
+		TangentSums[Index2] += Tangent;
+		TangentSums[Index2] += Tangent;
+
+		BitangentSums[Index0] += Bitangent;
+		BitangentSums[Index1] += Bitangent;
+		BitangentSums[Index2] += Bitangent;
+	}
+
+	for (uint32 i = 0; i < VertexCount; ++i)
+	{
+		const FVector& Normal = Vertices[i].Normal;
+
+		FVector Tangent = TangentSums[i] - Normal * Normal.Dot(TangentSums[i]);
+		float sign = 1.0f;
+
+		if (Tangent.SizeSquared() < 1e-12f)
+		{
+			const FVector Axis = abs(Normal.Z) < 0.99f ? ZAxisVector : XAxisVector;
+			Tangent = Axis.Cross(Normal);
+		}
+		else if (Normal.Cross(Tangent).Dot(BitangentSums[i]) < 0.0f)
+		{
+			sign = -1.0f;
+		}
+
+		Vertices[i].Tangent.Set(Tangent.GetSafeNormal(SMALL_NUMBER, XAxisVector), sign);
+	}
+}
+
 void FStaticMeshData::OptimizeTriangleOrderForVertexCache()
 {
 	constexpr uint32 CacheSize = 32;

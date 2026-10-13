@@ -178,31 +178,38 @@ void UAssetManager::LoadAsset(const FString& Key, const FString& Path)
 
 void UAssetManager::CreateDefaultTextures()
 {
+	
+	auto CreateSolidTexture = [this](const FString& Name, uint32 Pixel)
+	{
+		D3D11_TEXTURE2D_DESC Desc{};
+		Desc.Width = 1;
+		Desc.Height = 1;
+		Desc.MipLevels = 1;
+		Desc.ArraySize = 1;
+		Desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		Desc.SampleDesc.Count = 1;
+		Desc.Usage = D3D11_USAGE_IMMUTABLE;
+		Desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+
+		TUniquePtr<FTexture2D> Resource = RenderCommand::CreateTexture2D(Desc, &Pixel);
+		if (!Resource)
+		{
+			return;
+		}
+
+		UTexture2D* Texture = NewObject<UTexture2D>();
+		Texture->SetResource(std::move(Resource));
+		Texture->SetPath(Name);
+
+		AssetMap[Name] = Texture;
+	};
+
 	// 텍스처가 지정되지 않은 머티리얼이 검게 나오지 않도록 하는 1x1 흰색 텍스처.
 	// 셰이더에서 곱해도 결과가 변하지 않으므로 "텍스처 없음"의 기본값으로 쓴다.
-	const uint32 WhitePixel = 0xFFFFFFFF;
+	CreateSolidTexture("WhiteTexture", 0xFFFFFFFF);
 
-	D3D11_TEXTURE2D_DESC Desc{};
-	Desc.Width = 1;
-	Desc.Height = 1;
-	Desc.MipLevels = 1;
-	Desc.ArraySize = 1;
-	Desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	Desc.SampleDesc.Count = 1;
-	Desc.Usage = D3D11_USAGE_IMMUTABLE;
-	Desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-
-	TUniquePtr<FTexture2D> Resource = RenderCommand::CreateTexture2D(Desc, &WhitePixel);
-	if (!Resource)
-	{
-		return;
-	}
-
-	UTexture2D* WhiteTexture = NewObject<UTexture2D>();
-	WhiteTexture->SetResource(std::move(Resource));
-	WhiteTexture->SetPath("WhiteTexture");
-
-	AssetMap["WhiteTexture"] = WhiteTexture;
+	// 노멀맵이 없는 머터리얼용. 0,0,1 로 채워진 노말맵이다.
+	CreateSolidTexture("FlatNormalTexture", 0xFFFF8080);
 }
 
 void UAssetManager::CreateDefaultMeshes()
@@ -281,7 +288,7 @@ void UAssetManager::CreateDefaultMaterial()
 	UMaterial* DefaultMat = NewObject<UMaterial>();
 	DefaultMat->Shader = FRenderResourceManager::GetShaderProgram("Resources/Shader/UberLit.hlsl", "PHONG");
 	DefaultMat->Textures.Add(GetAssetByPath<UTexture2D>("WhiteTexture"));
-
+	DefaultMat->Textures.Add(GetAssetByPath<UTexture2D>("FlatNormalTexture"));
 
 	DefaultMat->ParamLayout = EMaterialParamLayout::StaticMesh;
 	DefaultMat->ParamBuffer = RenderCommand::CreateConstantBuffer(sizeof(FStaticMeshMaterialParams));
@@ -416,6 +423,7 @@ bool UAssetManager::ReorientStaticMesh(UStaticMesh& Mesh, const std::function<FV
 	{
 		Vertex.Position = Rotate(Vertex.Position);
 		Vertex.Normal = Rotate(Vertex.Normal);
+		Vertex.Tangent.Set(Rotate(FVector(Vertex.Tangent.X, Vertex.Tangent.Y, Vertex.Tangent.Z)), Vertex.Tangent.W);
 		Bounds.Min = FVector(std::min(Bounds.Min.X, Vertex.Position.X), std::min(Bounds.Min.Y, Vertex.Position.Y), std::min(Bounds.Min.Z, Vertex.Position.Z));
 		Bounds.Max = FVector(std::max(Bounds.Max.X, Vertex.Position.X), std::max(Bounds.Max.Y, Vertex.Position.Y), std::max(Bounds.Max.Z, Vertex.Position.Z));
 	}

@@ -488,6 +488,8 @@ bool FObjImporter::Cook(const FObjInfo& Raw, FStaticMeshData& Out)
 		return false;
 	}
 
+	Cooked.ComputeTangents();
+
 	Out = std::move(Cooked);
 	return true;
 }
