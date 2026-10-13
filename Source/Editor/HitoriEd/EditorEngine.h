@@ -104,6 +104,8 @@ private:
 
 	//현재 프레임 깊이값만 미리 기록하는 Pass
 	void RenderDepthPrepass(const int32 ViewIndex, const FRenderingInfo& ViewRenderingInfo, const FMatrix& ViewProjection);
+	//화면을 타일로 나누고, 타일마다 라이트가 포함되는지 검사하는 단계
+	void ComputeTileBasedLight();
 	//불투명 물체에 대한 Pass
 	void RenderOpaquePass(const int32 ViewIndex, const FRenderingInfo& ViewRenderingInfo, const FMatrix& ViewProjection, const FVector& ViewCameraLocation, const FVector& ViewCameraForward, bool bPrepass);
 	//안개에 대한 Pass

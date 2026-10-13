@@ -66,6 +66,7 @@ bool FRenderer::Init()
 	LightCB = RenderCommand::CreateConstantBuffer(sizeof(FLightConstants));
 
 	GPUOcclusion.Init();   // 실패해도 오클루전만 못 쓸 뿐 렌더링은 된다
+	TileBasedCulling.Init();
 
 	return true;
 }

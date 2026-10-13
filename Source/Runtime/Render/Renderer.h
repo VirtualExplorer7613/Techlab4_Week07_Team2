@@ -7,6 +7,7 @@
 #include "RenderingInfo.h"
 #include "Render/ViewMode.h"
 #include "Occlusion/GPUOcclusion.h"
+#include "TileBasedCulling/TileBasedCulling.h"
 #include "Shared/LightDefinitions.h"
 
 constexpr uint32 ObjectSlotBytes = 256;
@@ -105,6 +106,7 @@ public:
 
 	// Gather 전에 World가 불러 가려진 물체를 거른다.
 	FGPUOcclusion& GetGPUOcclusion() { return GPUOcclusion; }
+	FTileBasedCulling& GetTileBasedCulling() { return TileBasedCulling; }
 
 	// 캐시된 스태틱 메시 경로: World::Gather가 조각별로 채운 묶음을 이번 프레임 불투명 패스에 넘긴다.
 	// 묶음 메모리는 World 소유이며 다음 Gather 전까지 유효하다. RenderQueueSorting이 묶음을 정렬하고 RenderOpaque가 그린다.
@@ -166,6 +168,7 @@ private:
 	ComPtr<ID3D11DepthStencilState> DepthLessEqualReadOnly;
 
 	FGPUOcclusion GPUOcclusion;
+	FTileBasedCulling TileBasedCulling;
 
 	void DrawPackets(uint32 Begin, uint32 End, const FMatrix& ViewProjection, const EViewMode ViewMode);
 	void DrawStaticGroups(const EViewMode ViewMode);

@@ -174,6 +174,8 @@ FLightResult CalculateLighting(float3 worldPos, float3 normal, float3 viewDir)
     Total.Diffuse = float3(0, 0, 0);
     Total.Specular = float3(0, 0, 0);
 
+    //TODO: TileBasedCulling이 완성되면 픽셀이 포함된 타일을 찾아 라이트를 순회하도록 변경
+    
     //PointLight
     for (uint i = 0; i < PointLightCount; ++i)
     {

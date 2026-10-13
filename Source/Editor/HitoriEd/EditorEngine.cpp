@@ -571,6 +571,12 @@ void UEditorEngine::RenderDepthPrepass(const int32 ViewIndex, const FRenderingIn
 	RenderCommand::EndRenderPass(PassInfo);
 }
 
+void UEditorEngine::ComputeTileBasedLight()
+{
+	FTileBasedCulling& TBC = Renderer->GetTileBasedCulling();
+	TBC.Run();
+}
+
 // 입력 View의 Ray와 피킹으로 Gizmo·공유 선택을 갱신한다.
 void UEditorEngine::RenderOpaquePass(const int32 ViewIndex, const FRenderingInfo& ViewRenderingInfo, const FMatrix& ViewProjection, const FVector& ViewCameraLocation, const FVector& ViewCameraForward, bool bPrepass)
 {
@@ -921,13 +927,12 @@ void UEditorEngine::RenderFrame(const int32 ViewIndex, UWorld& ViewWorld, const 
 
 	if (bPrepass)
 	{
-		//depth prepass...
-		RenderDepthPrepass(ViewIndex, ViewRenderingInfo, ViewProjection);   // DSV Clear, 색 RT 없음, 
+		RenderDepthPrepass(ViewIndex, ViewRenderingInfo, ViewProjection);
 	}
 
 	if (bTileCull)
 	{
-		//Compute Shader...
+		ComputeTileBasedLight();
 	}
 
 	// 1. 불투명 Pass
