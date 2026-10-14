@@ -534,6 +534,26 @@ namespace
 
 					ImGui::PopID();
 
+					ImGui::TableNextRow();
+					ImGui::TableSetColumnIndex(0);
+					ImGui::Text("Normal Strength");
+
+					ImGui::TableSetColumnIndex(1);
+					ImGui::SetNextItemWidth(-1.0f);
+
+					float TempNormalStrength = Effective ? Effective->NormalStrength : 1.0f;
+
+					if (ImGui::DragFloat("##NormalStrength", &TempNormalStrength, 0.01f, 0.0f, 5.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp))
+					{
+						Override = EnsureMaterialOverride(MeshComponent, Slot, Effective, Override);
+
+						if (Override)
+						{
+							Override->NormalStrength = TempNormalStrength;
+							Effective = Override;
+						}
+					}
+
 
 					ImGui::TableNextRow();
 
