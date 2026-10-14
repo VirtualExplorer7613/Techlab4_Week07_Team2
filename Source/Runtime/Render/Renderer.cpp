@@ -577,7 +577,10 @@ void FRenderer::BindMaterial(UMaterial* material, const EViewMode ViewMode)
 	{
 		UTexture2D* Texture = Slot < static_cast<int32>(material->Textures.Num()) ? material->Textures[Slot] : nullptr;
 
-		RenderCommand::BindShaderResource(Slot,	Texture, EShaderBindFlagBits::Pixel);
+		// Normal Texture를 t2가 아닌 t3에 바인딩
+		const uint32 GPUTextureSlot = (material->ParamLayout == EMaterialParamLayout::StaticMesh && Slot == 1) ? 3u : static_cast<uint32>(Slot);
+
+		RenderCommand::BindShaderResource(GPUTextureSlot, Texture, EShaderBindFlagBits::Pixel);
 	}
 
 	RenderCommand::BindSamplerState(0, material->SamplerState, EShaderBindFlagBits::Pixel);

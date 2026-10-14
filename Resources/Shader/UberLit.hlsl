@@ -286,7 +286,7 @@ struct PS_INPUT
 
 Texture2D g_txColor : register(t0);
 SamplerState g_Sample : register(s0);
-Texture2D g_txNormal : register(t1); // CPU에서 Textures[1]에 저장한 normal texture
+Texture2D g_txNormal : register(t3); // CPU에서 Textures[1]에 저장한 normal texture
 
 PS_INPUT mainVS(VS_INPUT input)
 {
