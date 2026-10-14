@@ -1,7 +1,7 @@
 #ifndef LIGHT_DEFINITIONS_H
 #define LIGHT_DEFINITIONS_H
 
-#define NUM_POINT_LIGHT 16
-#define NUM_SPOT_LIGHT 16
+#define NUM_POINT_LIGHT 1024
+#define NUM_SPOT_LIGHT 1024
 
 #endif

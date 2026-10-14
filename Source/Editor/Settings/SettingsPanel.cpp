@@ -44,6 +44,7 @@ void FSettingsPanel::OnRender()
 	ImGui::Checkbox("Show Object UUID", &Settings.bShowUUID);
 	ImGui::Checkbox("FXAA", &Settings.bEnableFXAA);
 	ImGui::Checkbox("Depth View", &Settings.bDepthView);
+	ImGui::Checkbox("Tile-Based Light Culling", &Settings.bTileBasedLightCulling);
 	ImGui::Checkbox("Exponential Height Fog", &Settings.bExponentialHeightFog);
 	//////////////////////////////////////////////////////////
 

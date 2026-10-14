@@ -271,8 +271,15 @@ void FRenderDevice::CreateStates()
 		Desc.FrontFace.StencilFunc = D3D11_COMPARISON_EQUAL;
 		Desc.BackFace = Desc.FrontFace;
 		Device->CreateDepthStencilState(&Desc, DepthStencilStates[(uint8)EDepthStencilState::StencilOutline].GetAddressOf());
+	
+		
+		Desc.DepthEnable = TRUE;
+		Desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+		Desc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
+		Desc.StencilEnable = FALSE;
+		Device->CreateDepthStencilState(&Desc, DepthStencilStates[(uint8)EDepthStencilState::LessEqualReadOnly].GetAddressOf());
 	}
-
+		
 	// ---------- Blend ----------
 	{
 		D3D11_BLEND_DESC Desc = {};

@@ -2,7 +2,7 @@
 
 #include "Shared/LightDefinitions.h"
 
-#if !defined(LIGHTING_MODEL_GOURAUD) && !defined(LIGHTING_MODEL_LAMBERT) && !defined(LIGHTING_MODEL_PHONG) && !defined(LIGHTING_MODEL_UNLIT) && !defined(VIEWMODE_WORLDNORMAL)
+#if !defined(LIGHTING_MODEL_GOURAUD) && !defined(LIGHTING_MODEL_LAMBERT) && !defined(LIGHTING_MODEL_PHONG) && !defined(LIGHTING_MODEL_UNLIT) && !defined(VIEWMODE_WORLDNORMAL) && !defined(VIEWMODE_LIGHTCULLING)
     #define LIGHTING_MODEL_PHONG 1
 #endif
 
@@ -61,16 +61,39 @@ struct FDirectionalLightInfo
     float4 Direction;
 };
 
+// 개수가 하나뿐인 라이트와 로컬 라이트 개수만 cbuffer에 둔다 (C++ FLightGlobalConstants와 같은 레이아웃)
 cbuffer LightConstants : register(b3)
 {
-    FPointLightInfo PointLights[NUM_POINT_LIGHT];
-    FSpotLightInfo SpotLights[NUM_SPOT_LIGHT];
     FAmbientLightInfo AmbientLight;
     FDirectionalLightInfo DirectionalLight;
     uint PointLightCount;
     uint SpotLightCount;
     uint2 LightPadding;
 };
+
+// 로컬 라이트 배열은 개수 제한이 없고 인덱스가 달라도 느려지지 않는 StructuredBuffer로 읽는다.
+// 머티리얼 텍스처(t0~)와 겹치지 않도록 뒤쪽 슬롯을 쓴다 (C++ LightSRVSlot과 같은 값)
+StructuredBuffer<FPointLightInfo> PointLights : register(t8);
+StructuredBuffer<FSpotLightInfo> SpotLights : register(t9);
+
+cbuffer TileBasedCullingConstants : register(b4)
+{
+    matrix View;
+    matrix InvProjection;
+    
+    uint2 TileCount;
+    uint2 ScreenSize;
+    
+    uint TilePointLightCount;
+    uint TileSpotLightCount;
+    uint2 Padding;
+};
+
+#define TILE_SIZE 16
+#define SPOT_FLAG 0x80000000
+
+StructuredBuffer<uint2> TileHeader : register(t1);
+StructuredBuffer<uint> TileLightIndices : register(t2);
 
 // ACES Filmic Tone Mapping
 float3 ACESFilmicToneMapping(float3 color)
@@ -171,6 +194,38 @@ FLightResult CalculateDirectionalLight(FDirectionalLightInfo info, float3 normal
     return BlinnPhong(normal, lightDir, viewDir, radiance);
 }
 
+FLightResult CalculateLightingTiled(float2 PixelPos, float3 worldPos, float3 normal, float3 viewDir)
+{
+    FLightResult Total;
+    Total.Diffuse = float3(0, 0, 0);
+    Total.Specular = float3(0, 0, 0);
+
+    uint2 Tile = uint2(PixelPos / TILE_SIZE);
+    uint TileIndex = Tile.y * TileCount.x + Tile.x;
+    
+    uint2 Header = TileHeader[TileIndex];
+    
+    for (uint c = 0; c < Header.y; ++c)
+    {
+        uint Id = TileLightIndices[Header.x + c];
+        FLightResult Light;
+        if (Id & SPOT_FLAG)
+        {
+            Light = CalculateSpotLight(SpotLights[Id & ~SPOT_FLAG], worldPos, normal, viewDir);
+        }
+        else
+        {
+            Light = CalculatePointLight(PointLights[Id], worldPos, normal, viewDir);
+        }
+        Total.Diffuse += Light.Diffuse;
+        Total.Specular += Light.Specular;
+    }
+    FLightResult Directional = CalculateDirectionalLight(DirectionalLight, normal, viewDir);
+    Total.Diffuse += Directional.Diffuse;
+    Total.Specular += Directional.Specular;
+    return Total;
+}
+
 // 직접광(Point·Spot·Directional)의 Diffuse/Specular 합. Ambient는 따로 더한다.
 FLightResult CalculateLighting(float3 worldPos, float3 normal, float3 viewDir)
 {
@@ -178,6 +233,8 @@ FLightResult CalculateLighting(float3 worldPos, float3 normal, float3 viewDir)
     Total.Diffuse = float3(0, 0, 0);
     Total.Specular = float3(0, 0, 0);
 
+    //TODO: TileBasedCulling이 완성되면 픽셀이 포함된 타일을 찾아 라이트를 순회하도록 변경
+    
     //PointLight
     for (uint i = 0; i < PointLightCount; ++i)
     {
@@ -302,6 +359,22 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
 
 #elif VIEWMODE_WORLDNORMAL
     return float4(normal * 0.5f + 0.5f, 1.0f);   // -1~1 노멀을 0~1 색으로
+
+#elif VIEWMODE_LIGHTCULLING
+    // 컬링 결과가 없는 물체(반투명 등)는 회색으로 표시한다
+    if (TileCount.x == 0)
+        return float4(0.2f, 0.2f, 0.2f, 1.0f);
+
+    // 타일에 남은 라이트 개수: 파랑(0개) → 초록(8개) → 빨강(16개 이상)
+    uint2 HeatTile = uint2(input.position.xy) / TILE_SIZE;
+    uint HeatCount = TileHeader[HeatTile.y * TileCount.x + HeatTile.x].y;
+    float HeatT = saturate(HeatCount / 16.0f);
+    float3 Heat = HeatT < 0.5f
+        ? lerp(float3(0.0f, 0.0f, 1.0f), float3(0.0f, 1.0f, 0.0f), HeatT * 2.0f)
+        : lerp(float3(0.0f, 1.0f, 0.0f), float3(1.0f, 0.0f, 0.0f), HeatT * 2.0f - 1.0f);
+    if (any(uint2(input.position.xy) % TILE_SIZE == 0))   // 16x16 타일 경계선
+        Heat *= 0.5f;
+    return float4(Heat, 1.0f);
 #endif
    
     albedo.rgb = pow(albedo.rgb, 2.2f);
@@ -317,7 +390,11 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
     return float4(finalRGB, alpha);
 #endif
 
-FLightResult Light = CalculateLighting(input.worldPos, normal, viewDir);
+    FLightResult Light;
+    if (TileCount.x > 0)
+        Light = CalculateLightingTiled(input.position.xy, input.worldPos, normal, viewDir);
+    else
+        Light = CalculateLighting(input.worldPos, normal, viewDir);
     
 #if LIGHTING_MODEL_PHONG
     finalRGB =  finalRGB * (ambient + Light.Diffuse) + Light.Specular;

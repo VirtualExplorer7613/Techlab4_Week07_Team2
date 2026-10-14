@@ -11,8 +11,16 @@ enum class EViewMode : uint8
     Unlit,
     WorldNormal,
     Wireframe,
+    LightCulling,  // 타일별 컬링된 라이트 개수 히트맵
     MAX
 };
+
+//픽셀 셰이더에 라이팅 연산이 있는가? (타일 베이스 라이트 컬링에 사용
+inline constexpr bool IsPerPixelLit(EViewMode ViewMode)
+{
+    return  ViewMode == EViewMode::Lit_Lambert
+            || ViewMode == EViewMode::Lit_Phong;
+}
 
 // 뷰포트 콤보에 표시할 이름. EViewMode와 같은 순서다.
 inline constexpr const char* ViewModeLabels[] =
@@ -23,6 +31,7 @@ inline constexpr const char* ViewModeLabels[] =
     "Unlit",
     "World Normal",
     "Wireframe",
+    "Light Culling",
 };
 
 // Renderer에서 ViewMode에 대응하여 가져올 Permutation 이름, 각 모드에 대응하는 셰이더 프로그램을 가져오는 데에 사용된다.
@@ -34,6 +43,7 @@ inline constexpr const char* ViewModeToPermutation[] =
     "UNLIT",
     "WORLDNORMAL",
     "UNLIT",
+    "LIGHTCULLING",
 };
 static_assert(sizeof(ViewModeLabels) / sizeof(ViewModeLabels[0]) == static_cast<size_t>(EViewMode::MAX),
     "ViewModeLabels must match EViewMode");

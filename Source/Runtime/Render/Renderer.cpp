@@ -56,6 +56,41 @@ namespace
 			| (static_cast<uint64>(Group.Mesh->SortID) << 31)
 			| (static_cast<uint64>(Group.LODIndex & 0x3) << 29);
 	}
+
+	bool CreateDynamicStructuredBuffer(uint32 Stride, uint32 Count, ComPtr<ID3D11Buffer>& OutBuffer, ComPtr<ID3D11ShaderResourceView>& OutSRV)
+	{
+		ID3D11Device* Device = RenderCommand::GetDevice();
+
+		D3D11_BUFFER_DESC Desc{};
+		Desc.ByteWidth = Stride * Count;
+		Desc.Usage = D3D11_USAGE_DYNAMIC;
+		Desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+		Desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		Desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+		Desc.StructureByteStride = Stride;
+
+		D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc{};
+		SRVDesc.Format = DXGI_FORMAT_UNKNOWN;
+		SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+		SRVDesc.Buffer.NumElements = Count;
+
+		if (FAILED(Device->CreateBuffer(&Desc, nullptr, OutBuffer.GetAddressOf())) || FAILED(Device->CreateShaderResourceView(OutBuffer.Get(), &SRVDesc, OutSRV.GetAddressOf())))
+			return false;
+
+		return true;
+	}
+
+	void UploadDynamicBuffer(ID3D11Buffer* Buffer, const void* Data, uint32 Size)
+	{
+		if (!Buffer) return;
+		D3D11_MAPPED_SUBRESOURCE MappedResource{};
+		ID3D11DeviceContext* Context = RenderCommand::GetContext();
+		if (SUCCEEDED(Context->Map(Buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedResource)))
+		{
+			std::memcpy(MappedResource.pData, Data, Size);
+			Context->Unmap(Buffer, 0);
+		}
+	}
 }
 
 bool FRenderer::Init()
@@ -63,11 +98,23 @@ bool FRenderer::Init()
 	bUsePerObjectSlots = RenderCommand::SupportsConstantBufferOffsets();
 	PerObjectCB = RenderCommand::CreateConstantBuffer(sizeof(FPerObjectConstants));
 	ViewCB = RenderCommand::CreateConstantBuffer(sizeof(FViewConstants));
-	LightCB = RenderCommand::CreateConstantBuffer(sizeof(FLightConstants));
-
+	LightCB = RenderCommand::CreateConstantBuffer(sizeof(FLightGlobalConstants));
+	if (!CreateDynamicStructuredBuffer(sizeof(FPointLight), NUM_POINT_LIGHT, PointLightBuffer, PointLightSRV) || !CreateDynamicStructuredBuffer(sizeof(FSpotLight), NUM_SPOT_LIGHT, SpotLightBuffer, SpotLightSRV))
+	{
+		HTR_LOG(Error, "[Renderer] Failed to create dynamic structured buffers for lights.");
+	}
 	GPUOcclusion.Init();   // 실패해도 오클루전만 못 쓸 뿐 렌더링은 된다
+	TileBasedCulling.Init();
 
 	return true;
+}
+
+void FRenderer::DepthPrepass(const FMatrix& ViewProjection, const EViewMode ViewMode)
+{
+	bDepthOnly = true;
+	DrawStaticGroups(ViewMode);
+	DrawPackets(0, FirstTranslucentIndex, ViewProjection, ViewMode);
+	bDepthOnly = false;
 }
 
 // 필요한 칸 수가 용량을 넘을 때만 두 배씩 키워 재할당을 드물게 한다.
@@ -140,18 +187,32 @@ void FRenderer::RenderAll(FRenderQueue& InQueue, const FMatrix& ViewProjection, 
 	RenderTranslucent(ViewProjection, ViewMode);
 }
 
-void FRenderer::RenderOpaque(const FMatrix& ViewProjection, const EViewMode ViewMode)
+void FRenderer::BindLightResources()
 {
 	RenderCommand::BindConstantBuffer(3, LightCB.get(), EShaderBindFlagBits::Pixel | EShaderBindFlagBits::Vertex);
 
+	// Gouraud는 VS에서, 나머지 Lit은 PS에서 라이트를 읽으므로 두 스테이지에 모두 꽂는다.
+	constexpr uint32 LightSRVSlot = 8;   // UberLit의 register(t8), register(t9)
+	ID3D11ShaderResourceView* LightSRVs[2] = { PointLightSRV.Get(), SpotLightSRV.Get() };
+	ID3D11DeviceContext* Context = RenderCommand::GetContext();
+	Context->VSSetShaderResources(LightSRVSlot, 2, LightSRVs);
+	Context->PSSetShaderResources(LightSRVSlot, 2, LightSRVs);
+}
+
+void FRenderer::RenderOpaque(const FMatrix& ViewProjection, const EViewMode ViewMode, bool bDepthPrepassed)
+{
+	BindLightResources();
+
+	this->bDepthPrepassed = bDepthPrepassed;
 	DrawStaticGroups(ViewMode);
 	DrawPackets(0, FirstTranslucentIndex, ViewProjection, ViewMode);
+	this->bDepthPrepassed = false;
 }
 
 // RenderOpaque가 남긴 반투명 패킷을 먼 것부터 그린다.
 void FRenderer::RenderTranslucent(const FMatrix& ViewProjection, const EViewMode ViewMode)
 {
-	RenderCommand::BindConstantBuffer(3, LightCB.get(), EShaderBindFlagBits::Pixel | EShaderBindFlagBits::Vertex);
+	BindLightResources();
 
 	DrawPackets(FirstTranslucentIndex, SortEntries.Num(), ViewProjection, ViewMode);
 	RenderPackets.Reset();
@@ -263,11 +324,13 @@ void FRenderer::DrawPackets(uint32 Begin, uint32 End, const FMatrix& ViewProject
 		if (RenderPacket.Mesh != LastMesh || RenderPacket.LODIndex != LastLODIndex) {
 			RenderCommand::BindMesh(RenderPacket.Mesh, RenderPacket.LODIndex);
 		}
-		if (RenderPacket.Material != LastMaterial) {
+
+		if (RenderPacket.Material != LastMaterial)
 			BindMaterial(RenderPacket.Material, ViewMode);
-		}
+			
 		if (RenderPacket.Material != LastMaterial || RenderPacket.MaterialParamData)
 			UpdateMaterialParams(RenderPacket);
+
 		if (bUsePerObjectSlots && RenderPacket.Slot != InvalidObjectSlot)
 		{
 			RenderCommand::BindConstantBufferRange(2, PerObjectSlotCB.get(), RenderPacket.Slot * PerObjectSlotConstants, PerObjectSlotConstants, EShaderBindFlagBits::Vertex);
@@ -366,6 +429,8 @@ FOcclusionMeasureResult FRenderer::MeasureOpaqueOcclusion(const FMatrix& ViewPro
 
 		if (Draw.Mesh != BoundMesh || Draw.LODIndex != BoundLOD)
 			RenderCommand::BindMesh(Draw.Mesh, Draw.LODIndex);
+
+
 		if (Draw.Material != BoundMaterial)
 		{
 			BindMaterial(Draw.Material, ViewMode);
@@ -473,11 +538,27 @@ void FRenderer::BindMaterial(UMaterial* material, const EViewMode ViewMode)
 	}
 
 	RenderCommand::BindShaderProgram(Shader);
+
+	//Depth Prepass인 경우, Pixel Shader을 nullptr로, DepthStencilState를 Default로 한다.
+	//그 뒤의 머테리얼 설정은 깊이 프리패스에 필요 없으므로 건너뛴다.
+	if (bDepthOnly)
+	{
+		RenderCommand::GetContext()->PSSetShader(nullptr, nullptr, 0); // PS 없이 깊이만
+		RenderCommand::SetDepthStencilState(EDepthStencilState::Default); // LESS + Write
+		return;
+	}
+
 	RenderCommand::SetBlendState(material->BlendState);
-	// 반투명은 뒤에 그려지는 Grid·다른 반투명을 가리지 않도록 깊이를 쓰지 않는다.
+
+	// Opaque 패스에서 Depth Prepass가 실행되었다면, 기존 깊이값이 버려지지 않기 위해 LessEqualReadOnly로 변경한다.
 	const bool bTranslucent = material->BlendState != EBlendState::Opaque;
-	RenderCommand::SetDepthStencilState(bTranslucent && material->DepthStencilState == EDepthStencilState::Default
-		? EDepthStencilState::ReadOnly : material->DepthStencilState);
+	if (!bTranslucent && bDepthPrepassed)
+		RenderCommand::SetDepthStencilState(EDepthStencilState::LessEqualReadOnly);
+
+	// 반투명은 뒤에 그려지는 Grid·다른 반투명을 가리지 않도록 깊이를 쓰지 않는다.
+	else
+		RenderCommand::SetDepthStencilState(bTranslucent && material->DepthStencilState == EDepthStencilState::Default
+        ? EDepthStencilState::ReadOnly : material->DepthStencilState);
 
 	//for (int i = 0; i < material->Textures.size(); i++)
 	//{
@@ -578,5 +659,13 @@ void FRenderer::UpdatePerObjectConstants(const FMatrix& World)
 void FRenderer::SetLight(const FLightConstants& InLightData)
 {
 	LightData = InLightData;
-	RenderCommand::UpdateBufferData(LightCB.get(), &LightData, sizeof(FLightConstants));
+
+	FLightGlobalConstants Globals;
+	Globals.AmbientLight = LightData.AmbientLight;
+	Globals.DirectionalLight = LightData.DirectionalLight;
+	Globals.PointLightCount = LightData.PointLightCount;
+	Globals.SpotLightCount = LightData.SpotLightCount;
+	RenderCommand::UpdateBufferData(LightCB.get(), &Globals, sizeof(FLightGlobalConstants));
+	UploadDynamicBuffer(PointLightBuffer.Get(), LightData.PointLights, sizeof(FPointLight) * LightData.PointLightCount);
+	UploadDynamicBuffer(SpotLightBuffer.Get(), LightData.SpotLights, sizeof(FSpotLight) * LightData.SpotLightCount);
 }

@@ -7,6 +7,7 @@
 #include "RenderingInfo.h"
 #include "Render/ViewMode.h"
 #include "Occlusion/GPUOcclusion.h"
+#include "TileBasedCulling/TileBasedCulling.h"
 #include "Shared/LightDefinitions.h"
 
 constexpr uint32 ObjectSlotBytes = 256;
@@ -54,6 +55,7 @@ struct alignas(16) FPointLight
 	FVector4 ColorIntensity = FVector4(0, 0, 0, 0); // rgb: 색상, w: 강도
 	FVector4 FalloffEnabled = FVector4(1, 0, 0, 0); // x: 반경 감쇠, y: 사용 여부, zw: 패딩
 };
+static_assert(sizeof(FPointLight) == 48, "FPointLight must be 48 bytes");
 
 struct alignas(16) FSpotLight
 {
@@ -63,6 +65,7 @@ struct alignas(16) FSpotLight
 	FVector4 OutAngleInvCosDiff = FVector4(0, 0, 0, 0);// x : cosOuter, y : 1 / (cosInner - cosOuter)
 	FVector4 ForwardVector = FVector4(1, 0, 0, 0);		// xyz : 전방벡터
 };
+static_assert(sizeof(FSpotLight) == 80, "FSpotLight must be 80 bytes");
 
 struct alignas(16) FAmbientLight
 {
@@ -76,6 +79,7 @@ struct alignas(16) FDirectionalLight
 };
 
 
+// Scene이 채우는 CPU 쪽 라이트 묶음. 로컬 라이트 배열은 StructuredBuffer로, 나머지는 FLightGlobalConstants로 올라간다.
 struct alignas(16) FLightConstants
 {
 	FPointLight			PointLights[NUM_POINT_LIGHT];
@@ -87,10 +91,23 @@ struct alignas(16) FLightConstants
 	uint32 Padding[2] = {};
 };
 
+// UberLit의 LightConstants(b3)와 같은 레이아웃. 로컬 라이트 배열은 빠져 있다.
+struct alignas(16) FLightGlobalConstants
+{
+	FAmbientLight		AmbientLight;
+	FDirectionalLight	DirectionalLight;
+	uint32 PointLightCount = 0;
+	uint32 SpotLightCount = 0;
+	uint32 Padding[2] = {};
+};
+static_assert(sizeof(FLightGlobalConstants) == 64, "FLightGlobalConstants must match UberLit LightConstants");
+
 class FRenderer
 {
 public:
 	bool Init();
+
+	void DepthPrepass(const FMatrix& ViewProjection, const EViewMode ViewMode);
 
 	// 기존 단일 카메라의 ViewProjection으로 렌더 큐 전체를 그린다.
 	void RenderAll(FRenderQueue& InQueue, UCameraComponent* CameraComponent, const EViewMode ViewMode);
@@ -99,10 +116,11 @@ public:
 	void RenderAll(FRenderQueue& InQueue, const FMatrix& ViewProjection, const FVector CameraLocation, const EViewMode ViewMode);
 
 	// 큐를 정렬해 불투명 패킷만 그린다. 반투명은 RenderTranslucent 호출 전까지 보관한다.
-	void RenderOpaque(const FMatrix& ViewProjection, const EViewMode ViewMode);
+	void RenderOpaque(const FMatrix& ViewProjection, const EViewMode ViewMode, bool bDepthPrepassed = false);
 
 	// Gather 전에 World가 불러 가려진 물체를 거른다.
 	FGPUOcclusion& GetGPUOcclusion() { return GPUOcclusion; }
+	FTileBasedCulling& GetTileBasedCulling() { return TileBasedCulling; }
 
 	// 캐시된 스태틱 메시 경로: World::Gather가 조각별로 채운 묶음을 이번 프레임 불투명 패스에 넘긴다.
 	// 묶음 메모리는 World 소유이며 다음 Gather 전까지 유효하다. RenderQueueSorting이 묶음을 정렬하고 RenderOpaque가 그린다.
@@ -142,6 +160,13 @@ public:
 		std::memcpy(SlotBase + size_t(SlotIndex) * ObjectSlotBytes, &Constants, sizeof(Constants));
 	}
 
+	ID3D11ShaderResourceView* GetPointLightSRV() const { return PointLightSRV.Get(); }
+	ID3D11ShaderResourceView* GetSpotLightSRV() const { return SpotLightSRV.Get(); }
+
+	uint32 GetPointLightCount() const { return LightData.PointLightCount; }
+	uint32 GetSpotLightCount() const { return LightData.SpotLightCount; }
+	
+
 private:
 	// FIFO 소비용 배열의 용량만 재사용하며 매 View의 패킷 값은 새로 채운다.
 	FRenderQueue RenderPackets;
@@ -164,7 +189,10 @@ private:
 	ComPtr<ID3D11DepthStencilState> DepthLessEqualReadOnly;
 
 	FGPUOcclusion GPUOcclusion;
+	FTileBasedCulling TileBasedCulling;
 
+	// 라이트 cbuffer(b3)와 로컬 라이트 StructuredBuffer(t8, t9)를 VS·PS에 꽂는다.
+	void BindLightResources();
 	void DrawPackets(uint32 Begin, uint32 End, const FMatrix& ViewProjection, const EViewMode ViewMode);
 	void DrawStaticGroups(const EViewMode ViewMode);
 	void UpdatePerObjectConstants(const FMatrix& World);
@@ -181,4 +209,16 @@ private:
 
 	TUniquePtr<FConstantBuffer> LightCB;
 	FLightConstants LightData{};
+
+	//CS, PS가 읽는 동적 StructuredBuffer
+	ComPtr<ID3D11Buffer> PointLightBuffer;
+	ComPtr<ID3D11ShaderResourceView> PointLightSRV;
+	ComPtr<ID3D11Buffer> SpotLightBuffer;
+	ComPtr<ID3D11ShaderResourceView> SpotLightSRV;
+
+	//DepthPrepass 시 잠깐 켜짐, 머테리얼 바인딩을 건너뜀
+	bool bDepthOnly = false;
+
+	//DepthPrepass가 이전에 실행되었다면 true, Opaque pass에서만 사용됨
+	bool bDepthPrepassed = false;
 };
