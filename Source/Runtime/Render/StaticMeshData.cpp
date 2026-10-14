@@ -121,7 +121,7 @@ void FStaticMeshData::ComputeTangents()
 		const FVector Bitangent = (Edge2 * DeltaUV1.X - Edge1 * DeltaUV2.X) * InvDet;
 
 		TangentSums[Index0] += Tangent;
-		TangentSums[Index2] += Tangent;
+		TangentSums[Index1] += Tangent;
 		TangentSums[Index2] += Tangent;
 
 		BitangentSums[Index0] += Bitangent;
