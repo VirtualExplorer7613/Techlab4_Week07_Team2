@@ -467,6 +467,95 @@ namespace
 					}
 
 					ImGui::TableNextRow();
+					ImGui::TableSetColumnIndex(0);
+					ImGui::Text("Normal Map");
+
+					ImGui::TableSetColumnIndex(1);
+
+					// 배열에 두 번째 슬롯이 있는지 먼저 확인한다.
+					UTexture2D* NormalTexture =	(Effective && Effective->Textures.Num() > 1) ? Effective->Textures[1] : nullptr;
+
+					// 기존 Texture 행의 "Empty" 버튼과 ID가 겹치지 않게 한다.
+					ImGui::PushID("NormalMap");
+
+					if (NormalTexture && NormalTexture->GetResource())
+					{
+						ImGui::Image((ImTextureID)NormalTexture->GetResource()->GetSRV(), { ThumbnailSize, ThumbnailSize });
+
+						if (ImGui::IsItemHovered())
+						{
+							ImGui::SetTooltip("%s", NormalTexture->GetPath().c_str());
+						}
+					}
+					else
+					{
+						ImGui::Button("Empty", { ThumbnailSize, ThumbnailSize });
+					}
+
+					if (ImGui::BeginDragDropTarget())
+					{
+						if (const ImGuiPayload* Payload =ImGui::AcceptDragDropPayload(EditorDragDrop::Texture))
+						{
+							UTexture2D* DroppedTexture = *static_cast<UTexture2D**>(Payload->Data);
+
+							Override = EnsureMaterialOverride(MeshComponent, Slot, Effective, Override);
+
+							if (Override)
+							{
+								// [0]: 기본 색상 텍스처, [1]: 노멀맵
+								while (Override->Textures.Num() < 2)
+								{
+									Override->Textures.Add(nullptr);
+								}
+
+								Override->Textures[1] = DroppedTexture;
+
+								NormalTexture = DroppedTexture;
+								Effective = Override;
+							}
+						}
+
+						ImGui::EndDragDropTarget();
+					}
+
+					ImGui::SameLine();
+
+					if (NormalTexture)
+					{
+						FString FileName =
+							fs::path(NormalTexture->GetPath()).filename().string();
+
+						ImGui::TextWrapped("%s", FileName.c_str());
+					}
+					else
+					{
+						ImGui::TextDisabled("(Empty)");
+					}
+
+					ImGui::PopID();
+
+					ImGui::TableNextRow();
+					ImGui::TableSetColumnIndex(0);
+					ImGui::Text("Normal Strength");
+
+					ImGui::TableSetColumnIndex(1);
+					ImGui::SetNextItemWidth(-1.0f);
+
+					float TempNormalStrength = Effective ? Effective->NormalStrength : 1.0f;
+
+					if (ImGui::DragFloat("##NormalStrength", &TempNormalStrength, 0.01f, 0.0f, 5.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp))
+					{
+						Override = EnsureMaterialOverride(MeshComponent, Slot, Effective, Override);
+
+						if (Override)
+						{
+							Override->NormalStrength = TempNormalStrength;
+							Effective = Override;
+						}
+					}
+
+
+					ImGui::TableNextRow();
 
 					// 4: UV Scroll Speed
 					ImGui::TableSetColumnIndex(0);

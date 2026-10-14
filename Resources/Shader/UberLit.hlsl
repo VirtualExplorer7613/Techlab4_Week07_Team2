@@ -28,6 +28,10 @@ cbuffer MaterialParams : register(b1)
     float2 UVOffset;
     float bOpaque;
     float Shininess;
+    
+    float NormalStrength;
+    float HasNormalMap;
+    float2 MaterialPadding;
 };
 
 struct FPointLightInfo
@@ -262,6 +266,7 @@ struct VS_INPUT
     float3 n : NORMAL;
     float4 c : COLOR; // Input color from vertex buffer
     float2 t : TEXCOORD;
+    float4 tangent : TANGENT;
 };
 
 struct PS_INPUT
@@ -275,10 +280,13 @@ struct PS_INPUT
     float3 Diffuse : TEXCOORD2;
     float3 Specular : TEXCOORD3;
 #endif
+    float3 tangentWorld : TEXCOORD4;
+    nointerpolation float tangentSign : TEXCOORD5;
 };
 
 Texture2D g_txColor : register(t0);
 SamplerState g_Sample : register(s0);
+Texture2D g_txNormal : register(t3); // CPU에서 Textures[1]에 저장한 normal texture
 
 PS_INPUT mainVS(VS_INPUT input)
 {
@@ -289,6 +297,10 @@ PS_INPUT mainVS(VS_INPUT input)
 
     // 비균등 스케일에서도 올바른 노멀값을 구하기 위해 역전치행렬 사용
     output.normal = normalize(mul(float4(input.n, 0.0f), WorldInvTranspose).xyz);
+    // 탄젠트를 월드 공간으로 변환
+    output.tangentWorld = mul(float4(input.tangent.xyz, 0.0f), World).xyz;
+    float worldSign = determinant((float3x3) World) < 0.0f ? -1.0f : 1.0f;
+    output.tangentSign = input.tangent.w * worldSign;
     
 #if LIGHTING_MODEL_GOURAUD
     float3 viewDir = normalize(CameraLocation - output.worldPos);
@@ -308,6 +320,36 @@ float4 mainPS(PS_INPUT input) : SV_TARGET
     
 
     float3 normal = normalize(input.normal);
+    
+#if !LIGHTING_MODEL_UNLIT && !LIGHTING_MODEL_GOURAUD
+    if (HasNormalMap > 0.5f)
+    {
+        float3 N = normal;
+
+        // 보간된 탄젠트를 N과 다시 직교화한다.
+        float3 T = input.tangentWorld - N * dot(N, input.tangentWorld);
+
+        // 유효하지 않은 탄젠트면 기존 normal을 유지한다.
+        if (dot(T, T) > 1e-8f)
+        {
+            T = normalize(T);
+
+            float3 B = input.tangentSign * cross(N, T);
+
+            // 색 텍스처와 같은 UV 이동을 적용한다.
+            float3 tangentNormal = g_txNormal.Sample(g_Sample, input.uv + UVOffset).rgb;
+
+            // RGB [0, 1] -> 노멀 성분 [-1, 1]
+            tangentNormal = tangentNormal * 2.0f - 1.0f;
+
+            // 강도 0이면 탄젠트 공간의 평평한 노멀 방향이 된다.
+            tangentNormal.xy *= NormalStrength;
+
+            // 탄젠트 공간 -> 월드 공간
+            normal = normalize(tangentNormal.x * T + tangentNormal.y * B + tangentNormal.z * N);
+        }
+    }
+#endif
 
     // Opaque는 알파를 1로 고정한다. 뷰포트 RT를 ImGui가 알파 블렌딩으로 그리므로 알파가 남으면 비쳐 보인다
     float alpha = bOpaque > 0.5f ? 1.0f : albedo.a;

@@ -17,6 +17,9 @@ struct FStaticMaterialSlot
 	FString Name;
 	FVector4 BaseColor = FVector4(1, 1, 1, 1);
 	FString DiffuseTexturePath;
+
+	FString NormalTexturePath;
+	float NormalStrength = 1.0f;
 };
 
 struct FLODSourceVertex
@@ -71,5 +74,6 @@ struct FStaticMeshData
 	// 각 material section 안의 삼각형을 vertex 재사용이 가까워지도록 재배열한다.
 	void OptimizeTriangleOrderForVertexCache();
 
+	void CalculateTangents();
 	void BuildTriangleBVH();
 };

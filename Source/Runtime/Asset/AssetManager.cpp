@@ -78,6 +78,14 @@ namespace
 				Material->DepthStencilState = EDepthStencilState::ReadOnly;
 			}
 
+			if (Material->Textures.Num() < 2)
+			{
+				Material->Textures.SetNum(2);
+			}
+
+			Material->NormalStrength = Slot.NormalStrength;
+			Material->Textures[1] = nullptr;
+
 			if (!Slot.DiffuseTexturePath.empty())
 			{
 				UTexture2D* Texture = UAssetManager::Get().LoadTexture(Slot.DiffuseTexturePath);
@@ -85,6 +93,20 @@ namespace
 				if (Texture)
 				{
 					Material->Textures[0] = Texture;
+				}
+			}
+
+			if (!Slot.NormalTexturePath.empty())
+			{
+				UTexture2D* NormalTexture =	UAssetManager::Get().LoadTexture(Slot.NormalTexturePath);
+
+				if (NormalTexture)
+				{
+					Material->Textures[1] = NormalTexture;
+				}
+				else
+				{
+					HTR_LOG(Warning,"[OBJ] failed to load normal map '{}'",	Slot.NormalTexturePath);
 				}
 			}
 			Mesh->Materials.Add(Material);
@@ -420,6 +442,7 @@ bool UAssetManager::ReorientStaticMesh(UStaticMesh& Mesh, const std::function<FV
 		Bounds.Max = FVector(std::max(Bounds.Max.X, Vertex.Position.X), std::max(Bounds.Max.Y, Vertex.Position.Y), std::max(Bounds.Max.Z, Vertex.Position.Z));
 	}
 	Data.AABB = Bounds;
+	Data.CalculateTangents();
 
 	// 인덱스는 그대로다 (회전은 삼각형 감기 방향을 바꾸지 않는다). 정점 버퍼만 다시 올린다.
 	TUniquePtr<FVertexBuffer> VB = RenderCommand::CreateStaticVertexBuffer(Data.Vertices.GetData(),
