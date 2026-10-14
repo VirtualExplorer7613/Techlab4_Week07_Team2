@@ -11,6 +11,7 @@ enum class EViewMode : uint8
     Unlit,
     WorldNormal,
     Wireframe,
+    LightCulling,  // 타일별 컬링된 라이트 개수 히트맵
     MAX
 };
 
@@ -30,6 +31,7 @@ inline constexpr const char* ViewModeLabels[] =
     "Unlit",
     "World Normal",
     "Wireframe",
+    "Light Culling",
 };
 
 // Renderer에서 ViewMode에 대응하여 가져올 Permutation 이름, 각 모드에 대응하는 셰이더 프로그램을 가져오는 데에 사용된다.
@@ -41,6 +43,7 @@ inline constexpr const char* ViewModeToPermutation[] =
     "UNLIT",
     "WORLDNORMAL",
     "UNLIT",
+    "LIGHTCULLING",
 };
 static_assert(sizeof(ViewModeLabels) / sizeof(ViewModeLabels[0]) == static_cast<size_t>(EViewMode::MAX),
     "ViewModeLabels must match EViewMode");

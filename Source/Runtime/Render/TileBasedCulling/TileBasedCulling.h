@@ -28,6 +28,9 @@ public:
 	ID3D11ShaderResourceView* GetTileHeaderSRV() const { return TileHeaderSRV.Get(); }
 	ID3D11ShaderResourceView* GetTileLightIndicesSRV() const { return TileLightIndicesSRV.Get(); }
 
+	void BindResultToPs() const;
+	void UnbindResultFromPs() const;
+
 private:
 	ComPtr<ID3D11ComputeShader> TileBasedCullingCS;
 

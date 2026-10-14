@@ -571,10 +571,10 @@ void UEditorEngine::RenderDepthPrepass(const int32 ViewIndex, const FRenderingIn
 	RenderCommand::EndRenderPass(PassInfo);
 }
 
-void UEditorEngine::ComputeTileBasedLight(const int32 ViewIndex, const FRenderingInfo& ViewRenderingInfo, const FMatrix& ViewProjection)
+bool UEditorEngine::ComputeTileBasedLight(const int32 ViewIndex, const FRenderingInfo& ViewRenderingInfo, const FMatrix& ViewProjection)
 {
 	FTexture2D* Depth = ViewRenderingInfo.DepthStencil.Texture;
-	if (!Depth) return;
+	if (!Depth) return false;
 
 	FTileCullInputs Inputs;
 	Inputs.DepthSRV = Depth->GetSRV();
@@ -587,11 +587,11 @@ void UEditorEngine::ComputeTileBasedLight(const int32 ViewIndex, const FRenderin
 	Inputs.PointLightCount = Renderer->GetPointLightCount();
 	Inputs.SpotLightCount = Renderer->GetSpotLightCount();
 
-	Renderer->GetTileBasedCulling().Run(Inputs);
+	return Renderer->GetTileBasedCulling().Run(Inputs);
 }
 
 // 입력 View의 Ray와 피킹으로 Gizmo·공유 선택을 갱신한다.
-void UEditorEngine::RenderOpaquePass(const int32 ViewIndex, const FRenderingInfo& ViewRenderingInfo, const FMatrix& ViewProjection, const FVector& ViewCameraLocation, const FVector& ViewCameraForward, bool bPrepass)
+void UEditorEngine::RenderOpaquePass(const int32 ViewIndex, const FRenderingInfo& ViewRenderingInfo, const FMatrix& ViewProjection, const FVector& ViewCameraLocation, const FVector& ViewCameraForward, bool bPrepass, bool bTileCulled)
 {
 	FRenderingInfo PassInfo = ViewRenderingInfo;
 	if (bPrepass)
@@ -614,10 +614,17 @@ void UEditorEngine::RenderOpaquePass(const int32 ViewIndex, const FRenderingInfo
 		RenderCommand::SetBlendState(EBlendState::Opaque);
 		RenderCommand::SetDepthStencilState(EDepthStencilState::Default);
 		RenderCommand::SetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-		// 반투명은 Grid 뒤에 합성되어야 하므로 불투명만 먼저 그린다.
+		FTileBasedCulling& TileCulling = Renderer->GetTileBasedCulling();
+		if (bTileCulled)
+		{
+			TileCulling.BindResultToPs();
+		}
 		Renderer->RenderOpaque(ViewProjection, ViewMode, bPrepass);
 
+		if (bTileCulled)
+		{
+			TileCulling.UnbindResultFromPs();
+		}
 		// 장면 Wireframe이 Grid·Gizmo·UI로 전파되지 않도록 복원한다.
 		RenderCommand::SetRasterizerState(ERasterizerState::SolidBack);
 	}
@@ -931,8 +938,10 @@ void UEditorEngine::RenderFrame(const int32 ViewIndex, UWorld& ViewWorld, const 
 {
 	const FEditorSettings& Settings = SettingsPanel->GetSettings();
 	const EViewMode ViewMode = MultipleViewportsAdapter.GetViewMode(ViewIndex);
-	const bool bPrepass = Settings.bDrawPrimitives && Settings.bTileBasedLightCulling && ViewMode != EViewMode::Wireframe; //depth prepass를 할 것인가
-	const bool bTileCull = bPrepass && IsPerPixelLit(ViewMode); //라이트 컬링을 할 것인가
+	// Light Culling 뷰 모드는 컬링 결과를 보여주는 모드라 설정과 상관없이 컬링을 돌린다.
+	const bool bLightCullingView = ViewMode == EViewMode::LightCulling;
+	const bool bPrepass = Settings.bDrawPrimitives && (Settings.bTileBasedLightCulling || bLightCullingView) && ViewMode != EViewMode::Wireframe; //depth prepass를 할 것인가
+	const bool bTileCull = bPrepass && (IsPerPixelLit(ViewMode) || bLightCullingView); //라이트 컬링을 할 것인가
 
 	//0. 정렬
 	if (Settings.bDrawPrimitives)
@@ -943,13 +952,14 @@ void UEditorEngine::RenderFrame(const int32 ViewIndex, UWorld& ViewWorld, const 
 		RenderDepthPrepass(ViewIndex, ViewRenderingInfo, ViewProjection);
 	}
 
+	bool bTileCulled = false;
 	if (bTileCull)
 	{
-		ComputeTileBasedLight(ViewIndex, ViewRenderingInfo, ViewProjection);
+		bTileCulled = ComputeTileBasedLight(ViewIndex, ViewRenderingInfo, ViewProjection);
 	}
 
 	// 1. 불투명 Pass
-	RenderOpaquePass(ViewIndex, ViewRenderingInfo, ViewProjection, ViewCameraLocation, ViewCameraForward, bPrepass);
+	RenderOpaquePass(ViewIndex, ViewRenderingInfo, ViewProjection, ViewCameraLocation, ViewCameraForward, bPrepass, bTileCulled);
 	
 
 	if (SettingsPanel->GetSettings().bDepthView)

@@ -34,6 +34,7 @@ public:
 			{ "PHONG",			{ {"LIGHTING_MODEL_PHONG","1"},		{nullptr,nullptr} } },
 			{ "UNLIT",			{ {"LIGHTING_MODEL_UNLIT","1"},		{nullptr,nullptr} } },
 			{ "WORLDNORMAL",	{ {"VIEWMODE_WORLDNORMAL","1"},		{nullptr,nullptr} } },
+			{ "LIGHTCULLING",	{ {"VIEWMODE_LIGHTCULLING","1"},	{nullptr,nullptr} } },
 		};
 
 		Get().ScanShaders("Resources/Shader");

@@ -330,6 +330,26 @@ bool FTileBasedCulling::Run(const FTileCullInputs& Inputs)
 	return true;
 }
 
+void FTileBasedCulling::BindResultToPs() const
+{
+	ID3D11DeviceContext* Context = RenderCommand::GetContext();
+
+	ID3D11ShaderResourceView* SRVs[2] = { TileHeaderSRV.Get(), TileLightIndicesSRV.Get() };
+	Context->PSSetShaderResources(1, 2, SRVs);
+
+	ID3D11Buffer* CBs[1] = { TileBasedConstantsCB.Get() };
+	Context->PSSetConstantBuffers(4, 1, CBs);
+}
+
+void FTileBasedCulling::UnbindResultFromPs() const
+{
+	ID3D11DeviceContext* Context = RenderCommand::GetContext();
+	ID3D11ShaderResourceView* NullSRVs[2] = {};
+	ID3D11Buffer* NullCBs[1] = {};
+	Context->PSSetShaderResources(1, 2, NullSRVs);
+	Context->PSSetConstantBuffers(4, 1, NullCBs);
+}
+
 bool FTileBasedCulling::EnsureTileCapacity(uint32 TileCount)
 {
 	if (TileCount <= TileHeaderCapacity && TileHeaderBuffer && TileLightIndicesBuffer)
