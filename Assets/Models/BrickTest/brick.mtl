@@ -1,0 +1,4 @@
+newmtl Brick
+Kd 0.8 0.8 0.8
+map_Kd bricktexture.png
+map_Bump bricknormal.png
