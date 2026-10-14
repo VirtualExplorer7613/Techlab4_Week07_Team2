@@ -3,6 +3,7 @@
 #include "Shader.h"
 #include "Mesh.h"
 
+#include "Asset/AssetManager.h"
 #include "Core/EngineTimer.h"
 #include "Core/Stats/LightweightStats.h"
 
@@ -576,6 +577,10 @@ void FRenderer::BindMaterial(UMaterial* material, const EViewMode ViewMode)
 	for (int32 Slot = 0; Slot < TextureSlotCount; ++Slot)
 	{
 		UTexture2D* Texture = Slot < static_cast<int32>(material->Textures.Num()) ? material->Textures[Slot] : nullptr;
+		if (material->ParamLayout == EMaterialParamLayout::StaticMesh && Slot == 0 && !Texture)
+		{
+			Texture = UAssetManager::GetAssetByPath<UTexture2D>("WhiteTexture");
+		}
 
 		// Normal Texture를 t2가 아닌 t3에 바인딩
 		const uint32 GPUTextureSlot = (material->ParamLayout == EMaterialParamLayout::StaticMesh && Slot == 1) ? 3u : static_cast<uint32>(Slot);

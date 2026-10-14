@@ -374,6 +374,7 @@ namespace
 					MeshComponent->SetMaterial(Slot, nullptr);
 					Override = nullptr;
 					Effective = MeshComponent->GetMaterial(Slot);
+					Texture = (Effective && Effective->Textures.Num() > 0) ? Effective->Textures[0] : nullptr;
 				}
 			}
 			else
@@ -427,6 +428,20 @@ namespace
 						}
 						ImGui::EndDragDropTarget();
 					}
+					ImGui::SameLine();
+					ImGui::BeginDisabled(Texture == nullptr);
+					if (ImGui::SmallButton("Delete##ColorTexture"))
+					{
+						Override = EnsureMaterialOverride(MeshComponent, Slot, Effective, Override);
+						if (Override)
+						{
+							Override->Textures[0] = nullptr;
+							MeshComponent->SetMaterial(Slot, Override);
+							Texture = nullptr;
+							Effective = Override;
+						}
+					}
+					ImGui::EndDisabled();
 					ImGui::SameLine();
 
 					// 2: 텍스처 경로
@@ -518,6 +533,20 @@ namespace
 						ImGui::EndDragDropTarget();
 					}
 
+					ImGui::SameLine();
+					ImGui::BeginDisabled(NormalTexture == nullptr);
+					if (ImGui::SmallButton("Delete##NormalTexture"))
+					{
+						Override = EnsureMaterialOverride(MeshComponent, Slot, Effective, Override);
+						if (Override)
+						{
+							Override->Textures[1] = nullptr;
+							MeshComponent->SetMaterial(Slot, Override);
+							NormalTexture = nullptr;
+							Effective = Override;
+						}
+					}
+					ImGui::EndDisabled();
 					ImGui::SameLine();
 
 					if (NormalTexture)
