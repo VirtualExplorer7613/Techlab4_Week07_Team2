@@ -115,18 +115,29 @@ struct FLightResult
 
 // 라이트 하나의 Blinn-Phong 계산. Lambert 모드도 같은 함수를 쓰고 Specular만 버린다.
 // N: 표면 노멀, L: 표면→라이트, V: 표면→카메라 (모두 정규화), Radiance: 색 × 세기 × 감쇠
+// Schlick 근사 프레넬. 정면 반사율 F0에서 시작해 스치는 각도(cosTheta → 0)로 갈수록 1에 가까워진다.
+float3 FresnelSchlick(float3 F0, float cosTheta)
+{
+    return F0 + (1.0f - F0) * pow(1.0f - cosTheta, 5.0f);
+}
+
 FLightResult BlinnPhong(float3 N, float3 L, float3 V, float3 Radiance)
 {
     FLightResult Result;
 
     float NdotL = saturate(dot(N, L));
     float n = max(Shininess, 1.0f);
-    Result.Diffuse = Radiance * NdotL * 1/PI * (1.0f - Ks);
     float norm = (n + 8.0f) / (8.0f * PI); // Blinn-Phong 정규화 상수
     float3 H = normalize(L + V);
     float NdotH = saturate(dot(N, H));
+
+    // 하이라이트를 만드는 미세면의 노멀이 H이므로 입사각은 V·H로 잰다. Ks는 정면 반사율(F0)이다.
+    float3 F = FresnelSchlick(Ks, saturate(dot(V, H)));
+
+    // 반사된 만큼(F)을 뺀 나머지가 표면 안으로 들어가 diffuse가 된다.
+    Result.Diffuse = Radiance * NdotL * 1/PI * (1.0f - F);
     // 빛을 받지 못하는 면(N·L <= 0)에는 하이라이트가 생기지 않게 한다.
-    Result.Specular = Radiance * pow(NdotH, n) * norm * NdotL * Ks;
+    Result.Specular = Radiance * pow(NdotH, n) * norm * NdotL * F;
 
     return Result;
 }
