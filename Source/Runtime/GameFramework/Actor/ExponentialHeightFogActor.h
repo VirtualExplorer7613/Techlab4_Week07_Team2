@@ -7,7 +7,7 @@
 
 class AExponentialHeightFogActor final : public AInfo
 {
-	DECLARE_CLASS(AExponentialHeightFogActor, AActor)
+	DECLARE_CLASS(AExponentialHeightFogActor, AInfo)
 
 
 

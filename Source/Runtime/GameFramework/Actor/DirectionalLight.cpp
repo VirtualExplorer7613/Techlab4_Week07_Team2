@@ -3,12 +3,16 @@
 #include "DirectionalLight.h"
 #include "Asset/AssetManager.h"
 #include "Render/Material.h"
-#include "Asset/AssetManager.h"
 
 ADirectionalLight::ADirectionalLight()
 {
 	DirectionalLightComponent = CreateDefaultSubobject<UDirectionalLightComponent>("UDirectionalLightComponent");
-	DirectionalLightComponent->SetupAttachment(GetRootComponent());
+	SetRootComponent(DirectionalLightComponent);
+
+	// 아이콘은 에디터 전용이라 게임 빌드에서 빠질 수 있으므로 루트가 아닌 라이트 아래에 붙인다
+	BillboardComponent = CreateDefaultSubobject<UBillboardComponent>("UBillboardComponent");
+	BillboardComponent->SetupAttachment(DirectionalLightComponent);
+	BillboardComponent->SetHiddenInDetails(true);
 
 	//TODO : 에디터에서만 보이게 해야 한다.
 	StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>("ArrowComponent");
@@ -21,5 +25,5 @@ ADirectionalLight::ADirectionalLight()
 
 	UMaterial* Material = UAssetManager::GetAssetByPath<UMaterial>("DirectionalLightIconMaterial");
 	assert(Material);
-	GetBillboardComponent()->SetMaterial(0, Material);
+	BillboardComponent->SetMaterial(0, Material);
 }

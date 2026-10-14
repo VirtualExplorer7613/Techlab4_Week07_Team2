@@ -4,7 +4,7 @@
 #include "Component/SpotLightComponent.h"
 #include "Component/DirectionalLightComponent.h"
 #include "Component/AmbientLightComponent.h"
-#include "GameFramework/Actor/Info.h"
+#include "Component/BillboardComponent.h"
 #include "Shared/LightDefinitions.h"
 
 void FScene::AddPrimitive(UPrimitiveComponent* Component)
@@ -224,9 +224,13 @@ void FScene::UpdateLightComponents(FRenderer* Renderer)
 			continue;
 
 		// 라이트 액터 아이콘을 LightColor로 칠한다. Details 패널은 필드를 직접 바꾸므로 매 프레임 복사한다.
-		if (AInfo* Info = Cast<AInfo>(LightComponent->GetOwner()))
+		// 아이콘은 라이트 컴포넌트 자식으로 붙어 있고, 게임 빌드에서는 없을 수 있다.
+		for (USceneComponent* Child : LightComponent->GetAttachChildren())
 		{
-			Info->GetBillboardComponent()->SetTint(LightComponent->GetLightColor());
+			if (UBillboardComponent* Billboard = Cast<UBillboardComponent>(Child))
+			{
+				Billboard->SetTint(LightComponent->GetLightColor());
+			}
 		}
 
 		UClass* LightClass = LightComponent->GetClass();

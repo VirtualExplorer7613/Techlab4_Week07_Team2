@@ -113,13 +113,17 @@
                             }
                         },
                         {
-                            "Class": "UBillboardComponent",
-                            "Material": {
-                                "Asset": "DirectionalLightIconMaterial"
-                            },
-                            "Name": "UBillboardComponent",
+                            "Class": "UDirectionalLightComponent",
+                            "Name": "UDirectionalLightComponent",
                             "Parent": "",
                             "Properties": {
+                                "Intensity": 4.0,
+                                "LightColor": {
+                                    "W": 1.0,
+                                    "X": 1.0,
+                                    "Y": 1.0,
+                                    "Z": 1.0
+                                },
                                 "Transform": {
                                     "Location": {
                                         "X": -3.1597373485565186,
@@ -141,17 +145,13 @@
                             }
                         },
                         {
-                            "Class": "UDirectionalLightComponent",
-                            "Name": "UDirectionalLightComponent",
-                            "Parent": "UBillboardComponent",
+                            "Class": "UBillboardComponent",
+                            "Material": {
+                                "Asset": "DirectionalLightIconMaterial"
+                            },
+                            "Name": "UBillboardComponent",
+                            "Parent": "UDirectionalLightComponent",
                             "Properties": {
-                                "Intensity": 4.0,
-                                "LightColor": {
-                                    "W": 1.0,
-                                    "X": 1.0,
-                                    "Y": 1.0,
-                                    "Z": 1.0
-                                },
                                 "Transform": {
                                     "Location": {
                                         "X": 0.0,
@@ -230,13 +230,17 @@
                             }
                         },
                         {
-                            "Class": "UBillboardComponent",
-                            "Material": {
-                                "Asset": "AmbientLightIconMaterial"
-                            },
-                            "Name": "UBillboardComponent",
+                            "Class": "UAmbientLightComponent",
+                            "Name": "UAmbientLightComponent",
                             "Parent": "",
                             "Properties": {
+                                "Intensity": 0.10000000149011612,
+                                "LightColor": {
+                                    "W": 1.0,
+                                    "X": 1.0,
+                                    "Y": 1.0,
+                                    "Z": 1.0
+                                },
                                 "Transform": {
                                     "Location": {
                                         "X": -1.9232966899871826,
@@ -258,17 +262,13 @@
                             }
                         },
                         {
-                            "Class": "UAmbientLightComponent",
-                            "Name": "UAmbientLightComponent",
-                            "Parent": "UBillboardComponent",
+                            "Class": "UBillboardComponent",
+                            "Material": {
+                                "Asset": "AmbientLightIconMaterial"
+                            },
+                            "Name": "UBillboardComponent",
+                            "Parent": "UAmbientLightComponent",
                             "Properties": {
-                                "Intensity": 0.10000000149011612,
-                                "LightColor": {
-                                    "W": 1.0,
-                                    "X": 1.0,
-                                    "Y": 1.0,
-                                    "Z": 1.0
-                                },
                                 "Transform": {
                                     "Location": {
                                         "X": 0.0,
