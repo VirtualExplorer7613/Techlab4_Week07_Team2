@@ -775,6 +775,20 @@ void UEditorEngine::RenderOverlayPass(const int32 ViewIndex, UWorld& ViewWorld, 
 		return Component && Component->GetOwner() && Component->GetOwner()->GetWorld() == &ViewWorld;
 	};
 
+	// 빌보드 표시. 렌더 큐를 거치지 않으므로 안개·FXAA가 적용되지 않는다.
+	BillboardRenderer->BeginRender(ViewProjection, ViewCameraLocation);
+	for (TObjectIterator<UBillboardComponent> BillboardComponent; BillboardComponent; ++BillboardComponent)
+	{
+		if (!BillboardComponent->IsVisible() || !IsInViewWorld(*BillboardComponent))
+			continue;
+
+		// 피킹과 같은 행렬을 써야 클릭 영역과 그려진 아이콘이 맞는다.
+		const FVector Scale = BillboardComponent->GetWorldScale3D();
+		const FMatrix BillboardWorld = MultipleViewportsAdapter.BuildEngineBillboardMatrix(
+			ViewIndex, BillboardComponent->GetWorldLocation(), Scale.Y, Scale.Z);
+		BillboardRenderer->OnRender(**BillboardComponent, BillboardWorld);
+	}
+
 	// 스텐실 기반이라 선택 대상의 가시성이 꺼져 있어도 외곽선만 그린다.
 	if (bShowEditorOverlay && IsInViewWorld(Outline->GetTarget()))
 	{
@@ -822,20 +836,6 @@ void UEditorEngine::RenderOverlayPass(const int32 ViewIndex, UWorld& ViewWorld, 
 			const FMatrix BillboardWorld = MultipleViewportsAdapter.BuildEngineBillboardMatrix(ViewIndex, UUIDLocation, 1.0f, 1.0f);
 			TextRenderer->OnRender(Text, BillboardWorld, 0.5f, *SystemFont, ViewProjection);
 		}
-	}
-
-	// 빌보드 표시. 렌더 큐를 거치지 않으므로 안개·FXAA가 적용되지 않는다.
-	BillboardRenderer->BeginRender(ViewProjection, ViewCameraLocation);
-	for (TObjectIterator<UBillboardComponent> BillboardComponent; BillboardComponent; ++BillboardComponent)
-	{
-		if (!BillboardComponent->IsVisible() || !IsInViewWorld(*BillboardComponent))
-			continue;
-
-		// 피킹과 같은 행렬을 써야 클릭 영역과 그려진 아이콘이 맞는다.
-		const FVector Scale = BillboardComponent->GetWorldScale3D();
-		const FMatrix BillboardWorld = MultipleViewportsAdapter.BuildEngineBillboardMatrix(
-			ViewIndex, BillboardComponent->GetWorldLocation(), Scale.Y, Scale.Z);
-		BillboardRenderer->OnRender(**BillboardComponent, BillboardWorld);
 	}
 
 	RenderCommand::EndRenderPass(PassInfo);

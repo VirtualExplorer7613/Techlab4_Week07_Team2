@@ -595,33 +595,18 @@ FMatrix FMultipleViewportsAdapter::BuildEngineBillboardMatrix(const int32 ViewIn
 {
     assert(ViewIndex >= 0 && ViewIndex < MaxViewCount);
     const FViewCamera& ViewCamera = GetEffectiveCamera(ViewIndex);
-    if (ViewCamera.Projection.Mode == EProjectionMode::Orthographic)
-    {
-        // 직교 투영의 모든 시선은 평행하므로 카메라 위치가 아니라 고정된 화면 기저를 사용한다.
-        // 위치 기반 LookAt을 사용하면 평면 이동 시 오브젝트-카메라 벡터가 달라져 Billboard가 회전한다.
-        const FVector Facing = NormalizedOrZero(CameraForward(ViewCamera.Transform.Rotation)) * -1.0f;
-        const FVector Right = NormalizedOrZero(CameraRight(ViewCamera.Transform.Rotation));
-        const FVector Up = NormalizedOrZero(CameraUp(ViewCamera.Transform.Rotation));
 
-        FMatrix EngineMatrix;
-        EngineMatrix.SetIdentity();
-        EngineMatrix.M[0][0] = Facing.X; EngineMatrix.M[0][1] = Facing.Y; EngineMatrix.M[0][2] = Facing.Z;
-        EngineMatrix.M[1][0] = Right.X * Width; EngineMatrix.M[1][1] = Right.Y * Width; EngineMatrix.M[1][2] = Right.Z * Width;
-        EngineMatrix.M[2][0] = Up.X * Height; EngineMatrix.M[2][1] = Up.Y * Height; EngineMatrix.M[2][2] = Up.Z * Height;
-        EngineMatrix.M[3][0] = WorldPosition.X; EngineMatrix.M[3][1] = WorldPosition.Y; EngineMatrix.M[3][2] = WorldPosition.Z;
-        return EngineMatrix;
-    }
+    // 원근·직교 모두 카메라 기저를 쓴다 → 화면과 평행하고 화면 기준으로 항상 똑바로 선다
+    const FVector Facing = NormalizedOrZero(CameraForward(ViewCamera.Transform.Rotation)) * -1.0f;
+    const FVector Right = NormalizedOrZero(CameraRight(ViewCamera.Transform.Rotation));
+    const FVector Up = NormalizedOrZero(CameraUp(ViewCamera.Transform.Rotation));
 
-    const FBillboardTransform Result = ComputeBillboardTransform(
-        {WorldPosition, {Width, Height}},
-        ViewCamera.Transform);
-    FMatrix EngineMatrix = Result.WorldMatrix;
-
-    // 팀 엔진의 ParticleQuad는 Core의 Billboard 오른쪽 축과 반대 와인딩을 사용한다.
-    // 오른쪽 축만 뒤집어 기존 렌더 경로와 같은 앞면이 카메라를 향하게 한다.
-    EngineMatrix.M[1][0] = -EngineMatrix.M[1][0];
-    EngineMatrix.M[1][1] = -EngineMatrix.M[1][1];
-    EngineMatrix.M[1][2] = -EngineMatrix.M[1][2];
+    FMatrix EngineMatrix;
+    EngineMatrix.SetIdentity();
+    EngineMatrix.M[0][0] = Facing.X;        EngineMatrix.M[0][1] = Facing.Y;        EngineMatrix.M[0][2] = Facing.Z;
+    EngineMatrix.M[1][0] = Right.X * Width; EngineMatrix.M[1][1] = Right.Y * Width; EngineMatrix.M[1][2] = Right.Z * Width;
+    EngineMatrix.M[2][0] = Up.X * Height;   EngineMatrix.M[2][1] = Up.Y * Height;   EngineMatrix.M[2][2] = Up.Z * Height;
+    EngineMatrix.M[3][0] = WorldPosition.X; EngineMatrix.M[3][1] = WorldPosition.Y; EngineMatrix.M[3][2] = WorldPosition.Z;
     return EngineMatrix;
 }
 
