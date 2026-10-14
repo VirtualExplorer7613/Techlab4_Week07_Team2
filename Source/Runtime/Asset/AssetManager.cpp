@@ -239,6 +239,9 @@ void UAssetManager::CreateDefaultMeshes()
 	FStaticMeshData* SphereData = FGeometryGenerator::GetMeshData("Sphere");
 	RegisterAsset("Sphere", CreateStaticMesh(SphereData));
 
+	FStaticMeshData* TrashSphereData = FGeometryGenerator::GetMeshData("TrashSphere");
+	RegisterAsset("TrashSphere", CreateStaticMesh(TrashSphereData));
+
 	FStaticMeshData* CylinderData = FGeometryGenerator::GetMeshData("Cylinder");
 	RegisterAsset("Cylinder", CreateStaticMesh(CylinderData));
 
