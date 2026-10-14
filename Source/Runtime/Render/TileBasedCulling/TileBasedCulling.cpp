@@ -88,6 +88,7 @@ void TileCullCS(
 	uint3 DTid : SV_DispatchThreadID, //전체 위치 = Gid x numthreads + GTid (이중배열 계산 방식)
 	uint GI : SV_GroupIndex)		    //그룹 안의 1차원 번호 (0~255)
 {
+	//그룹의 첫 번째 스레드 실행 시, 그룹변수를 초기화한다.
     if (GI == 0)
     {
         sMinDepth = 0x7F7FFFFF;
@@ -114,7 +115,7 @@ void TileCullCS(
 
     //3. 그룹마다 2번 결과물로 Frustum을 만들기
     //256개의 스레드가 같은 AABB 도출 연산을 하지만, 같은 워프의 스레드는 어처피 같은 명령을
-    //동시에 실행하므로 시간차이는 거의 없다.
+    //동시에 실행하므로 시간차이는 거의 없다.(워프 = 32개면, 실행시간은 256/32 = 8번 계산하는 정도)
     
     const uint TileIndex = Gid.y * TileCount.x + Gid.x;
     // 타일 전체가 하늘이면 깊이 범위가 없어 AABB를 만들 수 없다 (그룹 전체가 같은 값이라 분기해도 안전)

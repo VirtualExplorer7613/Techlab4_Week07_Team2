@@ -98,7 +98,7 @@ bool FRenderer::Init()
 	bUsePerObjectSlots = RenderCommand::SupportsConstantBufferOffsets();
 	PerObjectCB = RenderCommand::CreateConstantBuffer(sizeof(FPerObjectConstants));
 	ViewCB = RenderCommand::CreateConstantBuffer(sizeof(FViewConstants));
-	LightCB = RenderCommand::CreateConstantBuffer(sizeof(FLightConstants));
+	LightCB = RenderCommand::CreateConstantBuffer(sizeof(FLightGlobalConstants));
 	if (!CreateDynamicStructuredBuffer(sizeof(FPointLight), NUM_POINT_LIGHT, PointLightBuffer, PointLightSRV) || !CreateDynamicStructuredBuffer(sizeof(FSpotLight), NUM_SPOT_LIGHT, SpotLightBuffer, SpotLightSRV))
 	{
 		HTR_LOG(Error, "[Renderer] Failed to create dynamic structured buffers for lights.");
@@ -187,9 +187,21 @@ void FRenderer::RenderAll(FRenderQueue& InQueue, const FMatrix& ViewProjection, 
 	RenderTranslucent(ViewProjection, ViewMode);
 }
 
-void FRenderer::RenderOpaque(const FMatrix& ViewProjection, const EViewMode ViewMode, bool bDepthPrepassed)
+void FRenderer::BindLightResources()
 {
 	RenderCommand::BindConstantBuffer(3, LightCB.get(), EShaderBindFlagBits::Pixel | EShaderBindFlagBits::Vertex);
+
+	// Gouraud는 VS에서, 나머지 Lit은 PS에서 라이트를 읽으므로 두 스테이지에 모두 꽂는다.
+	constexpr uint32 LightSRVSlot = 8;   // UberLit의 register(t8), register(t9)
+	ID3D11ShaderResourceView* LightSRVs[2] = { PointLightSRV.Get(), SpotLightSRV.Get() };
+	ID3D11DeviceContext* Context = RenderCommand::GetContext();
+	Context->VSSetShaderResources(LightSRVSlot, 2, LightSRVs);
+	Context->PSSetShaderResources(LightSRVSlot, 2, LightSRVs);
+}
+
+void FRenderer::RenderOpaque(const FMatrix& ViewProjection, const EViewMode ViewMode, bool bDepthPrepassed)
+{
+	BindLightResources();
 
 	this->bDepthPrepassed = bDepthPrepassed;
 	DrawStaticGroups(ViewMode);
@@ -200,7 +212,7 @@ void FRenderer::RenderOpaque(const FMatrix& ViewProjection, const EViewMode View
 // RenderOpaque가 남긴 반투명 패킷을 먼 것부터 그린다.
 void FRenderer::RenderTranslucent(const FMatrix& ViewProjection, const EViewMode ViewMode)
 {
-	RenderCommand::BindConstantBuffer(3, LightCB.get(), EShaderBindFlagBits::Pixel | EShaderBindFlagBits::Vertex);
+	BindLightResources();
 
 	DrawPackets(FirstTranslucentIndex, SortEntries.Num(), ViewProjection, ViewMode);
 	RenderPackets.Reset();
@@ -623,7 +635,13 @@ void FRenderer::UpdatePerObjectConstants(const FMatrix& World)
 void FRenderer::SetLight(const FLightConstants& InLightData)
 {
 	LightData = InLightData;
-	RenderCommand::UpdateBufferData(LightCB.get(), &LightData, sizeof(FLightConstants));
+
+	FLightGlobalConstants Globals;
+	Globals.AmbientLight = LightData.AmbientLight;
+	Globals.DirectionalLight = LightData.DirectionalLight;
+	Globals.PointLightCount = LightData.PointLightCount;
+	Globals.SpotLightCount = LightData.SpotLightCount;
+	RenderCommand::UpdateBufferData(LightCB.get(), &Globals, sizeof(FLightGlobalConstants));
 	UploadDynamicBuffer(PointLightBuffer.Get(), LightData.PointLights, sizeof(FPointLight) * LightData.PointLightCount);
 	UploadDynamicBuffer(SpotLightBuffer.Get(), LightData.SpotLights, sizeof(FSpotLight) * LightData.SpotLightCount);
 }

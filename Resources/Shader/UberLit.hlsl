@@ -57,16 +57,20 @@ struct FDirectionalLightInfo
     float4 Direction;
 };
 
+// 개수가 하나뿐인 라이트와 로컬 라이트 개수만 cbuffer에 둔다 (C++ FLightGlobalConstants와 같은 레이아웃)
 cbuffer LightConstants : register(b3)
 {
-    FPointLightInfo PointLights[NUM_POINT_LIGHT];
-    FSpotLightInfo SpotLights[NUM_SPOT_LIGHT];
     FAmbientLightInfo AmbientLight;
     FDirectionalLightInfo DirectionalLight;
     uint PointLightCount;
     uint SpotLightCount;
     uint2 LightPadding;
 };
+
+// 로컬 라이트 배열은 개수 제한이 없고 인덱스가 달라도 느려지지 않는 StructuredBuffer로 읽는다.
+// 머티리얼 텍스처(t0~)와 겹치지 않도록 뒤쪽 슬롯을 쓴다 (C++ LightSRVSlot과 같은 값)
+StructuredBuffer<FPointLightInfo> PointLights : register(t8);
+StructuredBuffer<FSpotLightInfo> SpotLights : register(t9);
 
 cbuffer TileBasedCullingConstants : register(b4)
 {

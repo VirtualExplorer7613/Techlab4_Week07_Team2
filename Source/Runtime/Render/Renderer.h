@@ -79,6 +79,7 @@ struct alignas(16) FDirectionalLight
 };
 
 
+// Scene이 채우는 CPU 쪽 라이트 묶음. 로컬 라이트 배열은 StructuredBuffer로, 나머지는 FLightGlobalConstants로 올라간다.
 struct alignas(16) FLightConstants
 {
 	FPointLight			PointLights[NUM_POINT_LIGHT];
@@ -89,6 +90,17 @@ struct alignas(16) FLightConstants
 	uint32 SpotLightCount = 0;
 	uint32 Padding[2] = {};
 };
+
+// UberLit의 LightConstants(b3)와 같은 레이아웃. 로컬 라이트 배열은 빠져 있다.
+struct alignas(16) FLightGlobalConstants
+{
+	FAmbientLight		AmbientLight;
+	FDirectionalLight	DirectionalLight;
+	uint32 PointLightCount = 0;
+	uint32 SpotLightCount = 0;
+	uint32 Padding[2] = {};
+};
+static_assert(sizeof(FLightGlobalConstants) == 64, "FLightGlobalConstants must match UberLit LightConstants");
 
 class FRenderer
 {
@@ -179,6 +191,8 @@ private:
 	FGPUOcclusion GPUOcclusion;
 	FTileBasedCulling TileBasedCulling;
 
+	// 라이트 cbuffer(b3)와 로컬 라이트 StructuredBuffer(t8, t9)를 VS·PS에 꽂는다.
+	void BindLightResources();
 	void DrawPackets(uint32 Begin, uint32 End, const FMatrix& ViewProjection, const EViewMode ViewMode);
 	void DrawStaticGroups(const EViewMode ViewMode);
 	void UpdatePerObjectConstants(const FMatrix& World);
