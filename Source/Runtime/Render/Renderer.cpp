@@ -582,7 +582,7 @@ void FRenderer::BindMaterial(UMaterial* material, const EViewMode ViewMode)
 			Texture = UAssetManager::GetAssetByPath<UTexture2D>("WhiteTexture");
 		}
 
-		// Normal Texture를 t2가 아닌 t3에 바인딩
+		// Normal Texture를 t1가 아닌 t3에 바인딩
 		const uint32 GPUTextureSlot = (material->ParamLayout == EMaterialParamLayout::StaticMesh && Slot == 1) ? 3u : static_cast<uint32>(Slot);
 
 		RenderCommand::BindShaderResource(GPUTextureSlot, Texture, EShaderBindFlagBits::Pixel);
